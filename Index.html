@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Šlebutė • Sandėlis</title>
+<meta name="theme-color" content="#6B2545">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sandėlis">
+<!-- Installable-to-homescreen manifest, inlined as a data URI so this stays
+     a single file — same "no separate assets, no IT install step" idea as
+     the main POS file. -->
+<link rel="manifest" href='data:application/manifest+json,{"name":"%C5%A0lebut%C4%97%20Sand%C4%97lis","short_name":"Sand%C4%97lis","display":"standalone","background_color":"%23FAF8F6","theme_color":"%236B2545","icons":[]}'>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ============================================================
+   Same "boutique atelier" brand tokens as the main POS, so this
+   reads as the same product on a smaller screen, not a bolt-on.
+   ============================================================ */
+:root {
+    --bg-color: #FAF8F6;
+    --card-bg: #FFFFFF;
+    --card-bg-raised: #F4EEF1;
+    --accent-color: #6B2545;
+    --accent-hover: #541B34;
+    --accent-tint: #F3E7EC;
+    --gold: #8B7037;
+    --text-primary: #241A1F;
+    --text-secondary: #7D6C78;
+    --glass-border: 1px solid rgba(36,22,30,0.09);
+    --input-bg: #F5F0F2;
+    --success-color: #477459;
+    --success-tint: #E9F1EC;
+    --danger-color: #A23B3B;
+    --danger-tint: #F7EAE9;
+    --warning-bg: #FBF1DF;
+    --warning-text: #8B5F1C;
+    --shadow-color: rgba(36,22,30,0.14);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overscroll-behavior-y: contain; }
+body { background: var(--bg-color); color: var(--text-primary); overflow: hidden; }
+input, button { font-family: inherit; }
+img { -webkit-user-drag: none; }
+
+/* ---------------- LOGIN ---------------- */
+#loginOverlay {
+    position: fixed; inset: 0; z-index: 999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; padding-top: calc(24px + var(--safe-top)); padding-bottom: calc(24px + var(--safe-bottom));
+    background: radial-gradient(circle at 20% 15%, rgba(107,37,69,0.08), transparent 45%),
+                radial-gradient(circle at 85% 90%, rgba(139,112,55,0.07), transparent 45%),
+                var(--bg-color);
+}
+.login-card { width: 100%; max-width: 360px; background: var(--card-bg); border-radius: 20px; padding: 36px 28px; text-align: center; box-shadow: 0 20px 60px var(--shadow-color); border: var(--glass-border); }
+.login-logo { font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 700; margin-bottom: 2px; }
+.login-logo span { color: var(--accent-color); }
+.login-sub { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 24px; }
+.login-input { width: 100%; padding: 15px; margin-bottom: 12px; border-radius: 10px; border: 1px solid rgba(36,22,30,0.14); background: var(--input-bg); color: var(--text-primary); font-size: 1rem; outline: none; }
+.login-input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px var(--accent-tint); }
+.login-btn { width: 100%; padding: 15px; background: var(--accent-color); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 6px; }
+.login-btn:disabled { opacity: 0.5; }
+.login-error { color: var(--danger-color); font-size: 0.82rem; margin-top: 12px; min-height: 1em; }
+
+/* ---------------- APP SHELL ---------------- */
+#app { display: none; flex-direction: column; height: 100%; }
+#app.visible { display: flex; }
+
+.topbar {
+    flex-shrink: 0;
+    padding: calc(12px + var(--safe-top)) 16px 10px;
+    background: var(--card-bg);
+    border-bottom: var(--glass-border);
+    display: flex; flex-direction: column; gap: 10px;
+    z-index: 30;
+}
+.topbar-row { display: flex; align-items: center; gap: 10px; }
+.brand-block { flex: 1; min-width: 0; }
+.brand-title { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.15rem; line-height: 1.1; }
+.brand-sub { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn-round {
+    width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--input-bg);
+    color: var(--text-primary); font-size: 1.05rem; display: flex; align-items: center; justify-content: center;
+    position: relative; flex-shrink: 0; cursor: pointer;
+}
+.icon-btn-round:active { background: var(--card-bg-raised); }
+.bell-dot {
+    position: absolute; top: 5px; right: 6px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--danger-color); border: 2px solid var(--card-bg); display: none;
+}
+.bell-dot.show { display: block; animation: pulseDot 1.6s infinite; }
+@keyframes pulseDot { 0% { box-shadow: 0 0 0 0 rgba(162,59,59,0.5); } 70% { box-shadow: 0 0 0 6px rgba(162,59,59,0); } 100% { box-shadow: 0 0 0 0 rgba(162,59,59,0); } }
+
+.search-wrap { position: relative; }
+.search-wrap i.fa-magnifying-glass { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
+#searchInput {
+    width: 100%; padding: 13px 40px 13px 40px; border-radius: 12px; border: 1px solid rgba(36,22,30,0.12);
+    background: var(--input-bg); color: var(--text-primary); font-size: 0.95rem; outline: none;
+}
+#searchInput:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px var(--accent-tint); }
+.search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; background: none; color: var(--text-secondary); font-size: 1rem; display: none; align-items: center; justify-content: center; }
+.search-clear.show { display: flex; }
+
+.chip-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; -ms-overflow-style: none; scrollbar-width: none; }
+.chip-row::-webkit-scrollbar { display: none; }
+.chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; background: var(--input-bg); border: 1px solid rgba(36,22,30,0.08); font-size: 0.78rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.chip.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+
+/* ---------------- GRID ---------------- */
+#gridScroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px calc(24px + var(--safe-bottom)); }
+.product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.pcard { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: var(--glass-border); box-shadow: 0 2px 10px rgba(36,22,30,0.05); cursor: pointer; }
+.pcard:active { transform: scale(0.98); }
+.pcard-img-wrap { width: 100%; aspect-ratio: 1; background: var(--card-bg-raised); position: relative; overflow: hidden; }
+.pcard-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.pcard-sale { position: absolute; top: 8px; left: 8px; background: var(--danger-color); color: #fff; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 5px; }
+.pcard-stock-dot { position: absolute; top: 8px; right: 8px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.9); }
+.dot-ok { background: var(--success-color); }
+.dot-low { background: var(--warning-text); }
+.dot-out { background: var(--danger-color); }
+.pcard-body { padding: 10px 11px 12px; }
+.pcard-name { font-size: 0.85rem; font-weight: 700; line-height: 1.25; margin-bottom: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard-meta { font-size: 0.7rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.pcard-total { font-weight: 700; color: var(--text-primary); }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 60px 20px; color: var(--text-secondary); text-align: center; font-size: 0.88rem; }
+.empty-state i { font-size: 1.8rem; opacity: 0.5; }
+
+/* ---------------- BOTTOM SHEET (shared) ---------------- */
+.sheet-scrim { position: fixed; inset: 0; background: rgba(36,22,30,0.45); z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.sheet-scrim.open { opacity: 1; pointer-events: auto; }
+.sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+    background: var(--bg-color); border-radius: 20px 20px 0 0;
+    max-height: 88vh; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.25s cubic-bezier(.2,.9,.3,1);
+    box-shadow: 0 -10px 40px rgba(36,22,30,0.25);
+    padding-bottom: var(--safe-bottom);
+}
+.sheet.open { transform: translateY(0); }
+.sheet-handle { width: 40px; height: 4px; border-radius: 3px; background: rgba(36,22,30,0.18); margin: 10px auto 4px; flex-shrink: 0; }
+.sheet-head { display: flex; align-items: flex-start; gap: 12px; padding: 10px 18px 14px; flex-shrink: 0; border-bottom: var(--glass-border); }
+.sheet-head img { width: 58px; height: 58px; border-radius: 12px; object-fit: cover; background: var(--card-bg-raised); flex-shrink: 0; }
+.sheet-head-text { flex: 1; min-width: 0; }
+.sheet-head-text h2 { font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 700; line-height: 1.25; }
+.sheet-head-text .muted { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
+.sheet-close { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--input-bg); color: var(--text-primary); flex-shrink: 0; font-size: 0.95rem; }
+.sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 18px 26px; }
+
+/* product sheet contents */
+.color-group { margin-bottom: 18px; }
+.color-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.color-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(36,22,30,0.15); flex-shrink: 0; }
+.color-group-head span { font-weight: 700; font-size: 0.88rem; }
+.size-card { background: var(--card-bg); border: var(--glass-border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.size-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.size-card-title { font-weight: 700; font-size: 0.86rem; }
+.size-card-sub { font-size: 0.7rem; color: var(--text-secondary); }
+.size-card-price { font-weight: 700; font-size: 0.86rem; color: var(--accent-color); }
+.store-stock-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.store-stock-pill { display: flex; align-items: center; gap: 5px; background: var(--input-bg); border-radius: 8px; padding: 5px 9px; font-size: 0.75rem; }
+.store-stock-pill .loc { color: var(--text-secondary); }
+.store-stock-pill .qty { font-weight: 700; }
+.store-stock-pill.zero .qty { color: var(--danger-color); }
+.store-stock-pill.low .qty { color: var(--warning-text); }
+.transfer-toggle { margin-left: auto; width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--accent-tint); color: var(--accent-color); font-size: 0.85rem; flex-shrink: 0; }
+.transfer-form { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(36,22,30,0.14); }
+.transfer-form.open { display: block; }
+.transfer-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.transfer-select { flex: 1; padding: 9px 8px; border-radius: 8px; border: 1px solid rgba(36,22,30,0.14); background: var(--input-bg); font-size: 0.8rem; color: var(--text-primary); min-width: 0; }
+.qty-stepper { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.qty-stepper button { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--input-bg); font-size: 1rem; font-weight: 700; }
+.qty-stepper input { width: 50px; text-align: center; padding: 7px 4px; border-radius: 8px; border: 1px solid rgba(36,22,30,0.14); background: var(--card-bg); font-size: 0.9rem; }
+.transfer-note { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 8px; }
+.btn { border: none; border-radius: 10px; padding: 11px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.btn-primary { background: var(--accent-color); color: #fff; width: 100%; }
+.btn-primary:disabled { opacity: 0.45; }
+.btn-ghost-sm { background: var(--input-bg); color: var(--text-primary); padding: 8px 12px; font-size: 0.78rem; }
+.btn-danger-sm { background: var(--danger-tint); color: var(--danger-color); padding: 8px 12px; font-size: 0.78rem; }
+.btn-success-sm { background: var(--success-tint); color: var(--success-color); padding: 8px 12px; font-size: 0.78rem; }
+
+/* ---------------- REQUESTS SHEET ---------------- */
+.req-tabs { display: flex; gap: 6px; padding: 12px 18px 0; flex-shrink: 0; }
+.req-tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 10px; background: var(--input-bg); font-size: 0.76rem; font-weight: 700; color: var(--text-secondary); position: relative; }
+.req-tab.active { background: var(--accent-color); color: #fff; }
+.req-tab .n { margin-left: 3px; }
+.req-item { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.req-item.needs-action { border-color: rgba(139,95,28,0.4); background: var(--warning-bg); }
+.req-top-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 6px; }
+.req-badge { font-size: 0.66rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+.badge-transfer { background: var(--accent-tint); color: var(--accent-color); }
+.badge-pickup { background: var(--warning-bg); color: var(--warning-text); }
+.status-pill { font-size: 0.66rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: var(--input-bg); color: var(--text-secondary); }
+.req-time { font-size: 0.68rem; color: var(--text-secondary); margin-left: auto; }
+.req-items-label { font-size: 0.84rem; font-weight: 600; margin-bottom: 3px; }
+.req-route { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; }
+.req-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------- TOAST ---------------- */
+#toastHost { position: fixed; left: 16px; right: 16px; bottom: calc(20px + var(--safe-bottom)); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { background: var(--text-primary); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.84rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25); animation: toastIn 0.2s ease; }
+.toast.success { background: var(--success-color); }
+.toast.error { background: var(--danger-color); }
+.toast.info { background: var(--accent-color); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.spinner-block { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-secondary); font-size: 0.85rem; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginOverlay">
+    <div class="login-card">
+        <div class="login-logo">Šlebutė <span>Sandėlis</span></div>
+        <div class="login-sub">Prisijunkite prie savo POS paskyros</div>
+        <input type="email" id="email" class="login-input" placeholder="El. paštas" autocomplete="username">
+        <input type="password" id="password" class="login-input" placeholder="Slaptažodis" autocomplete="current-password">
+        <button class="login-btn" id="loginBtn" onclick="login()">Prisijungti</button>
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app">
+    <div class="topbar">
+        <div class="topbar-row">
+            <div class="brand-block">
+                <div class="brand-title">Sandėlis</div>
+                <div class="brand-sub" id="storeLabel">—</div>
+            </div>
+            <button class="icon-btn-round" onclick="openRequestsSheet()" title="Užsakymai tarp parduotuvių">
+                <i class="fas fa-truck-fast"></i>
+                <span class="bell-dot" id="bellDot"></span>
+            </button>
+            <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
+        </div>
+        <div class="search-wrap">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
+            <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="chip-row" id="chipRow"></div>
+    </div>
+
+    <div id="gridScroll">
+        <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
+    </div>
+</div>
+
+<!-- ============ PRODUCT DETAIL SHEET ============ -->
+<div class="sheet-scrim" id="productScrim" onclick="closeProductSheet()"></div>
+<div class="sheet" id="productSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+        <img id="psImg" src="" onerror="this.style.opacity=0.15">
+        <div class="sheet-head-text">
+            <h2 id="psName">—</h2>
+            <div class="muted" id="psMeta">—</div>
+        </div>
+        <button class="sheet-close" onclick="closeProductSheet()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="sheet-body" id="psBody"></div>
+</div>
+
+<!-- ============ REQUESTS SHEET ============ -->
+<div class="sheet-scrim" id="reqScrim" onclick="closeRequestsSheet()"></div>
+<div class="sheet" id="reqSheet" style="max-height:82vh;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
+        <div class="sheet-head-text">
+            <h2>Užsakymai tarp parduotuvių</h2>
+            <div class="muted">Gyva būsena — atsinaujina automatiškai</div>
+        </div>
+        <button class="sheet-close" onclick="closeRequestsSheet()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="req-tabs">
+        <div class="req-tab active" data-tab="incoming" onclick="switchReqTab('incoming')">Aktyvūs<span class="n" id="cIncoming">0</span></div>
+        <div class="req-tab" data-tab="transit" onclick="switchReqTab('transit')">Kelyje<span class="n" id="cTransit">0</span></div>
+        <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
+    </div>
+    <div class="sheet-body" id="reqBody"></div>
+</div>
+
+<div id="toastHost"></div>
+
+<script>
+/* ============================================================
+   CONFIG — same Supabase project as the main POS. The anon key is
+   safe to ship client-side; every table/RPC this file touches is
+   RLS/RPC-gated server-side exactly as it is in the main app.
+   ============================================================ */
+const SUPABASE_URL = 'https://bpxakmnifkrsbjhiytqf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJweGFrbW5pZmtyc2JqaGl5dHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTMzNDgsImV4cCI6MjA4MDE4OTM0OH0.kgfljhRJeLtBIy7U8QU7DEGgRdBwcquH9QVLuhalMEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let PROFILE = null;
+let DEVICE_LOCATION_ID = null;
+let STORES = [];
+let products = [];
+let supplierPicker = [];
+let requestsCache = [];
+let currentReqTab = 'incoming';
+let activeCategory = null;
+let lastSearchResults = null;
+let realtimeChannel = null;
+let audioCtx = null;
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function toast(msg, type) {
+    const host = document.getElementById('toastHost');
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type || '');
+    el.innerText = msg;
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+}
+
+function playPing() {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.35);
+    } catch (e) { /* audio not available yet */ }
+    try { if (navigator.vibrate) navigator.vibrate([40, 60, 40]); } catch (e) {}
+}
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+async function checkSession() {
+    let session = null;
+    try {
+        const { data } = await sb.auth.getSession();
+        session = data && data.session;
+    } catch (e) {}
+    if (session) {
+        const ok = await loadProfile(session.user.id);
+        if (ok) { showApp(); return; }
+    }
+    document.getElementById('loginOverlay').style.display = 'flex';
+}
+
+async function loadProfile(userId) {
+    const { data, error } = await sb.from('profiles')
+        .select('id, full_name, role, store_id, stores(id, code, name)')
+        .eq('id', userId).maybeSingle();
+    if (error || !data) { document.getElementById('loginError').innerText = 'Nepavyko rasti profilio.'; return false; }
+    if (!data.store_id) { document.getElementById('loginError').innerText = 'Profilis nepriskirtas jokiai parduotuvei.'; return false; }
+    PROFILE = data;
+    DEVICE_LOCATION_ID = data.store_id;
+    return true;
+}
+
+async function login() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
+    err.innerText = '';
+    if (!email || !password) { err.innerText = 'Įveskite el. paštą ir slaptažodį.'; return; }
+    btn.disabled = true; btn.innerText = 'Jungiamasi...';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+        err.innerText = error.message;
+        btn.disabled = false; btn.innerText = 'Prisijungti';
+        return;
+    }
+    const ok = await loadProfile(data.user.id);
+    btn.disabled = false; btn.innerText = 'Prisijungti';
+    if (ok) showApp(); else await sb.auth.signOut();
+}
+
+async function logout() {
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    await sb.auth.signOut();
+    window.location.reload();
+}
+
+async function showApp() {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+    document.getElementById('storeLabel').innerText = (PROFILE.stores?.name || '—') + ' · ' + PROFILE.full_name;
+    await loadStores();
+    await loadSupplierPicker();
+    await loadCatalog();
+    await loadRequests();
+    subscribeRealtime();
+}
+
+async function loadStores() {
+    const { data, error } = await sb.from('stores').select('id, code, name').order('id');
+    if (!error && data) STORES = data;
+}
+
+async function loadSupplierPicker() {
+    const { data, error } = await sb.from('v_supplier_picker').select('*');
+    if (!error) supplierPicker = data || [];
+}
+
+/* ============================================================
+   CATALOG — same rpc_get_pos_catalog() every POS role calls, so
+   this shows the exact same cross-store stock numbers a cashier's
+   register would, with no separate "warehouse view" to keep in sync.
+   ============================================================ */
+async function loadCatalog() {
+    const { data, error } = await sb.rpc('rpc_get_pos_catalog');
+    if (error) {
+        document.getElementById('gridContent').innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i><div>Nepavyko įkelti katalogo.<br>${escapeHtml(error.message)}</div></div>`;
+        return;
+    }
+    products = (data || []).map(prod => {
+        const variants = [];
+        for (const color of (prod.product_colors || [])) {
+            for (const v of (color.product_variants || [])) {
+                if (!v.is_active) continue;
+                const stockByLocation = {};
+                for (const i of (v.inventory || [])) {
+                    stockByLocation[i.location_id] = { quantity: i.quantity, reserved: i.reserved_quantity, threshold: i.safety_stock_threshold };
+                }
+                variants.push({
+                    id: v.id, size: v.size, sku: v.sku, price: v.price,
+                    colorId: color.id, colorName: color.color_name, colorHex: color.color_hex,
+                    isClearance: !!v.is_clearance, clearanceReason: v.clearance_reason || null,
+                    stockByLocation
+                });
+            }
+        }
+        return {
+            id: prod.id, name: prod.name, base_barcode: prod.base_barcode, description: prod.description,
+            image_url: prod.image_url, category: prod.category, size_range: prod.size_range,
+            composition: prod.composition, supplierId: prod.supplier_id, variants
+        };
+    });
+    // A background reload (realtime inventory patch) must not clear
+    // whatever the person is currently searching for or filtered to —
+    // re-run the same search against the fresh product list instead of
+    // resetting to the full catalog.
+    const q = document.getElementById('searchInput').value;
+    lastSearchResults = q ? searchProducts(q) : null;
+    renderCategoryChips();
+    renderGrid(applyFilters(lastSearchResults !== null ? lastSearchResults : products));
+}
+
+function totalStockForProduct(p) {
+    let total = 0;
+    for (const v of p.variants) for (const locId in v.stockByLocation) total += v.stockByLocation[locId].quantity;
+    return total;
+}
+
+function productStatusClass(p) {
+    const total = totalStockForProduct(p);
+    if (total === 0) return 'dot-out';
+    for (const v of p.variants) {
+        for (const locId in v.stockByLocation) {
+            const s = v.stockByLocation[locId];
+            if (s.quantity <= (s.threshold != null ? s.threshold : 2)) return 'dot-low';
+        }
+    }
+    return 'dot-ok';
+}
+
+/* ---------------- SEARCH — identical multi-field, multi-token
+   matching to the POS grid (see searchProducts()/productMatchesToken()
+   in the main POS file) so a phrase like "nuolaida antom" finds the
+   same styles here that it would at the register. ---------------- */
+const SALE_SEARCH_KEYWORDS = ['sale', 'clearance', 'markdown', 'nuolaida', 'nuolaidos', 'išpardavimas', 'isparadavimas', 'akcija'];
+
+function productHasSupplierMatch(p, token) {
+    if (!p.supplierId) return false;
+    const sup = supplierPicker.find(s => s.id === p.supplierId);
+    return !!sup && sup.name.toLowerCase().includes(token);
+}
+function productHasClearanceVariant(p) { return p.variants.some(v => v.isClearance); }
+
+function productMatchesToken(p, token) {
+    if (SALE_SEARCH_KEYWORDS.includes(token) && productHasClearanceVariant(p)) return true;
+    return (
+        p.name.toLowerCase().includes(token) ||
+        (p.base_barcode || '').toLowerCase().includes(token) ||
+        (p.description || '').toLowerCase().includes(token) ||
+        (p.composition || '').toLowerCase().includes(token) ||
+        (p.category || '').toLowerCase().includes(token) ||
+        productHasSupplierMatch(p, token) ||
+        p.variants.some(v =>
+            (v.sku || '').toLowerCase().includes(token) ||
+            (v.colorName || '').toLowerCase().includes(token) ||
+            (v.isClearance && (v.clearanceReason || '').toLowerCase().includes(token))
+        )
+    );
+}
+
+function searchProducts(rawQuery) {
+    const q = (rawQuery || '').trim().toLowerCase();
+    if (!q) return products;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return products.filter(p => tokens.every(tok => productMatchesToken(p, tok)));
+}
+
+function applyFilters(list) {
+    if (activeCategory === null) return list;
+    return list.filter(p => (p.category || '—') === activeCategory);
+}
+
+function onSearchInput() {
+    const q = document.getElementById('searchInput').value;
+    document.getElementById('searchClearBtn').classList.toggle('show', !!q);
+    const filtered = searchProducts(q);
+    lastSearchResults = q ? filtered : null;
+    renderGrid(applyFilters(filtered));
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchClearBtn').classList.remove('show');
+    lastSearchResults = null;
+    renderGrid(applyFilters(products));
+}
+
+function renderCategoryChips() {
+    const cats = [...new Set(products.map(p => p.category || '—'))].sort((a, b) => a.localeCompare(b, 'lt'));
+    const row = document.getElementById('chipRow');
+    if (cats.length < 2) { row.innerHTML = ''; return; }
+    row.innerHTML = `<div class="chip ${activeCategory===null?'active':''}" onclick="setCategory(null)">Visos</div>` +
+        cats.map(c => `<div class="chip ${activeCategory===c?'active':''}" onclick="setCategory('${escapeHtml(c).replace(/'/g,"\\'")}')">${escapeHtml(c)}</div>`).join('');
+}
+
+function setCategory(cat) {
+    activeCategory = cat;
+    renderCategoryChips();
+    const base = lastSearchResults !== null ? lastSearchResults : products;
+    renderGrid(applyFilters(base));
+}
+
+function renderGrid(list) {
+    const cont = document.getElementById('gridContent');
+    if (!list.length) {
+        cont.innerHTML = `<div class="empty-state"><i class="fas fa-shirt"></i><div>Nieko nerasta pagal šią paiešką.</div></div>`;
+        return;
+    }
+    cont.innerHTML = `<div class="product-grid">` + list.map(p => {
+        const total = totalStockForProduct(p);
+        const dot = productStatusClass(p);
+        const sale = productHasClearanceVariant(p);
+        return `<div class="pcard" onclick="openProductSheet(${p.id})">
+            <div class="pcard-img-wrap">
+                <img src="${p.image_url||''}" loading="lazy" onerror="this.style.opacity=0.15">
+                ${sale ? `<span class="pcard-sale">NUOLAIDA</span>` : ''}
+                <span class="pcard-stock-dot ${dot}"></span>
+            </div>
+            <div class="pcard-body">
+                <div class="pcard-name">${escapeHtml(p.name)}</div>
+                <div class="pcard-meta"><span>${escapeHtml(p.category || '—')}</span><span class="pcard-total">${total} vnt.</span></div>
+            </div>
+        </div>`;
+    }).join('') + `</div>`;
+}
+
+/* ============================================================
+   PRODUCT DETAIL SHEET
+   ============================================================ */
+function openProductSheet(productId) {
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+    document.getElementById('psImg').src = p.image_url || '';
+    document.getElementById('psName').innerText = p.name;
+    const metaBits = [p.category, p.size_range, p.composition].filter(Boolean);
+    document.getElementById('psMeta').innerText = metaBits.join(' · ') || '—';
+
+    const byColor = {};
+    for (const v of p.variants) {
+        if (!byColor[v.colorName]) byColor[v.colorName] = { colorHex: v.colorHex, sizes: [] };
+        byColor[v.colorName].sizes.push(v);
+    }
+    const body = Object.entries(byColor).map(([colorName, info]) => {
+        info.sizes.sort((a, b) => compareSizes(a.size, b.size));
+        const sizeCards = info.sizes.map(v => {
+            const stockPills = STORES.map(s => {
+                const st = v.stockByLocation[s.id] || { quantity: 0, threshold: 2 };
+                const cls = st.quantity <= 0 ? 'zero' : (st.quantity <= (st.threshold != null ? st.threshold : 2) ? 'low' : '');
+                return `<span class="store-stock-pill ${cls}"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${st.quantity}</span></span>`;
+            }).join('');
+            return `<div class="size-card">
+                <div class="size-card-top">
+                    <div>
+                        <div class="size-card-title">${escapeHtml(v.size)} ${v.isClearance ? '<span class="pcard-sale" style="position:static;display:inline-block;">NUOLAIDA</span>' : ''}</div>
+                        <div class="size-card-sub">${escapeHtml(v.sku || '')}</div>
+                    </div>
+                    <div class="size-card-price">€${Number(v.price||0).toFixed(2)}</div>
+                    <button class="transfer-toggle" onclick="toggleTransferForm(${v.id})" title="Prašyti perkėlimo"><i class="fas fa-right-left"></i></button>
+                </div>
+                <div class="store-stock-row">${stockPills}</div>
+                <div class="transfer-form" id="tf-${v.id}"></div>
+            </div>`;
+        }).join('');
+        return `<div class="color-group">
+            <div class="color-group-head"><span class="color-swatch" style="background:${info.colorHex||'#999'}"></span><span>${escapeHtml(colorName)}</span></div>
+            ${sizeCards}
+        </div>`;
+    }).join('');
+
+    document.getElementById('psBody').innerHTML = body || `<div class="empty-state"><i class="fas fa-box-open"></i><div>Šis modelis dar neturi dydžių.</div></div>`;
+    document.getElementById('productScrim').classList.add('open');
+    document.getElementById('productSheet').classList.add('open');
+}
+
+function closeProductSheet() {
+    document.getElementById('productScrim').classList.remove('open');
+    document.getElementById('productSheet').classList.remove('open');
+}
+
+// Small-to-large sort for size rows: letter sizes first (XS..5XL), then
+// numeric sizes, then anything else alphabetically — so a manager scanning
+// stock always sees sizes in the order they'd expect, regardless of the
+// order the backend happens to return variants in.
+const SIZE_LETTER_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','XXXL','4XL','5XL'];
+function compareSizes(a, b) {
+    const ua = String(a||'').trim().toUpperCase(), ub = String(b||'').trim().toUpperCase();
+    const ia = SIZE_LETTER_ORDER.indexOf(ua), ib = SIZE_LETTER_ORDER.indexOf(ub);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    if (!isNaN(na)) return -1;
+    if (!isNaN(nb)) return 1;
+    return String(a||'').localeCompare(String(b||''), undefined, { numeric: true });
+}
+
+/* ---------------- inline "request a transfer" mini-form ----------------
+   One tap opens it right inside the size row it belongs to (no second
+   modal to navigate), pre-picks a source store that actually has stock
+   and a different store as target, and calls the exact same
+   rpc_create_stock_request the POS's own rebalance shortcut uses — so it
+   rides the same PENDING -> ACCEPTED -> scan-out -> scan-in flow and
+   never moves stock directly from a phone with no scan verification. */
+function findVariant(variantId) {
+    for (const p of products) {
+        const v = (p.variants || []).find(x => x.id === variantId);
+        if (v) return { p, v };
+    }
+    return null;
+}
+
+function toggleTransferForm(variantId) {
+    const box = document.getElementById('tf-' + variantId);
+    if (!box) return;
+    const isOpen = box.classList.contains('open');
+    document.querySelectorAll('.transfer-form.open').forEach(el => { el.classList.remove('open'); el.innerHTML = ''; });
+    if (isOpen) return;
+
+    const found = findVariant(variantId);
+    if (!found) return;
+    const { v } = found;
+    if (STORES.length < 2) { toast('Reikia bent 2 parduotuvių, kad būtų galima perkelti prekes.', 'error'); return; }
+
+    const withStock = STORES.filter(s => (v.stockByLocation[s.id]?.quantity || 0) > 0);
+    const defaultSource = (withStock[0] || STORES[0]).id;
+    const defaultTarget = (STORES.find(s => s.id !== defaultSource) || STORES[1]).id;
+
+    box.innerHTML = `
+        <div class="transfer-row">
+            <select class="transfer-select" id="tfSrc-${variantId}" onchange="clampTransferQty(${variantId})">
+                ${STORES.map(s => `<option value="${s.id}" ${s.id===defaultSource?'selected':''}>Iš: ${escapeHtml(s.name)} (${v.stockByLocation[s.id]?.quantity||0})</option>`).join('')}
+            </select>
+        </div>
+        <div class="transfer-row">
+            <select class="transfer-select" id="tfTgt-${variantId}">
+                ${STORES.map(s => `<option value="${s.id}" ${s.id===defaultTarget?'selected':''}>Į: ${escapeHtml(s.name)}</option>`).join('')}
+            </select>
+        </div>
+        <div class="qty-stepper">
+            <button onclick="stepTransferQty(${variantId}, -1)"><i class="fas fa-minus"></i></button>
+            <input type="number" id="tfQty-${variantId}" value="1" min="1">
+            <button onclick="stepTransferQty(${variantId}, 1)"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="transfer-note" id="tfNote-${variantId}"></div>
+        <button class="btn btn-primary" id="tfBtn-${variantId}" onclick="submitTransferRequest(${variantId})"><i class="fas fa-paper-plane"></i> Siųsti užklausą</button>
+    `;
+    box.classList.add('open');
+    clampTransferQty(variantId);
+}
+
+function clampTransferQty(variantId) {
+    const found = findVariant(variantId);
+    if (!found) return;
+    const srcSel = document.getElementById('tfSrc-' + variantId);
+    const qtyInput = document.getElementById('tfQty-' + variantId);
+    const note = document.getElementById('tfNote-' + variantId);
+    if (!srcSel || !qtyInput) return;
+    const avail = found.v.stockByLocation[parseInt(srcSel.value, 10)]?.quantity || 0;
+    if (avail <= 0) { note.innerText = 'Pasirinktoje parduotuvėje šios prekės nėra.'; qtyInput.value = 0; qtyInput.max = 0; return; }
+    qtyInput.max = avail;
+    note.innerText = `Turima šioje parduotuvėje: ${avail} vnt.`;
+    if (parseInt(qtyInput.value, 10) > avail || parseInt(qtyInput.value, 10) < 1) qtyInput.value = 1;
+}
+
+function stepTransferQty(variantId, delta) {
+    const qtyInput = document.getElementById('tfQty-' + variantId);
+    if (!qtyInput) return;
+    const max = parseInt(qtyInput.max || '999', 10);
+    let next = (parseInt(qtyInput.value, 10) || 0) + delta;
+    next = Math.max(1, Math.min(max, next));
+    qtyInput.value = next;
+}
+
+async function submitTransferRequest(variantId) {
+    const found = findVariant(variantId);
+    if (!found) return;
+    const srcSel = document.getElementById('tfSrc-' + variantId);
+    const tgtSel = document.getElementById('tfTgt-' + variantId);
+    const qtyInput = document.getElementById('tfQty-' + variantId);
+    const btn = document.getElementById('tfBtn-' + variantId);
+    const source = parseInt(srcSel.value, 10), target = parseInt(tgtSel.value, 10);
+    const qty = parseInt(qtyInput.value, 10);
+    if (source === target) { toast('Pasirinkite skirtingas parduotuves.', 'error'); return; }
+    if (!qty || qty <= 0) { toast('Įveskite teisingą kiekį.', 'error'); return; }
+
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Siunčiama...';
+    const { data, error } = await sb.rpc('rpc_create_stock_request', {
+        p_source_loc: source, p_target_loc: target, p_type: 'STORE_TRANSFER',
+        p_items: [{ variant_id: variantId, quantity: qty }],
+        p_customer: null, p_notes: 'Sukurta iš Sandėlio programėlės (telefonas).'
+    });
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Siųsti užklausą';
+    if (error) { toast(error.message, 'error'); return; }
+    toast(`Užklausa ${data.request_number} išsiųsta.`, 'success');
+    document.getElementById('tf-' + variantId).classList.remove('open');
+    await loadCatalog();
+    await loadRequests();
+}
+
+/* ============================================================
+   REQUESTS SHEET — the "live view of stock requests between stores".
+   Same table + same three-bucket split (incoming/transit/completed) as
+   the POS Dispatch Board, filtered to requests touching this person's
+   own store (admins see every store). Accept/Cancel are plain status
+   decisions and safe to do from a phone; Ship/Receive require the scan
+   verification built into the register, so those just point back there
+   instead of trying to replicate scanning here.
+   ============================================================ */
+async function loadRequests() {
+    const { data, error } = await sb.from('stock_requests')
+        .select(`id, request_number, request_type, status, customer_name, customer_phone, notes, created_at, resolved_at, expires_at,
+            source:source_location_id ( id, name ), target:target_location_id ( id, name ),
+            stock_request_items ( quantity, product_variants ( id, size, sku, product_colors ( color_name, products ( name, image_url ) ) ) )`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+    if (error) { return; }
+    requestsCache = data || [];
+    renderRequestsBadgeAndTabs();
+    renderRequestsList();
+}
+
+function isAdminRole() { return PROFILE && PROFILE.role === 'admin'; }
+function requestTouchesMe(r) { return isAdminRole() || r.source.id === DEVICE_LOCATION_ID || r.target.id === DEVICE_LOCATION_ID; }
+function requestNeedsAction(r) {
+    const isAdmin = isAdminRole();
+    if (r.status === 'PENDING' && (r.source.id === DEVICE_LOCATION_ID || isAdmin)) return true;
+    if (r.status === 'ACCEPTED' && (r.source.id === DEVICE_LOCATION_ID || isAdmin)) return true;
+    if (r.status === 'IN_TRANSIT' && r.request_type === 'STORE_TRANSFER' && (r.target.id === DEVICE_LOCATION_ID || isAdmin)) return true;
+    return false;
+}
+
+function renderRequestsBadgeAndTabs() {
+    const today = new Date().toDateString();
+    const incoming = requestsCache.filter(r => requestTouchesMe(r) && ['PENDING','ACCEPTED'].includes(r.status));
+    const transit = requestsCache.filter(r => requestTouchesMe(r) && r.status === 'IN_TRANSIT');
+    const completed = requestsCache.filter(r => requestTouchesMe(r) && ['COMPLETED','CANCELLED'].includes(r.status) && r.resolved_at && new Date(r.resolved_at).toDateString() === today);
+    document.getElementById('cIncoming').innerText = incoming.length;
+    document.getElementById('cTransit').innerText = transit.length;
+    document.getElementById('cCompleted').innerText = completed.length;
+
+    const actionable = incoming.filter(requestNeedsAction).length + transit.filter(requestNeedsAction).length;
+    document.getElementById('bellDot').classList.toggle('show', actionable > 0);
+}
+
+const REQ_STATUS_LABELS = { PENDING: 'Laukiama', ACCEPTED: 'Priimta', IN_TRANSIT: 'Kelyje', COMPLETED: 'Įvykdyta', CANCELLED: 'Atšaukta' };
+
+function switchReqTab(tab) {
+    currentReqTab = tab;
+    document.querySelectorAll('.req-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+    renderRequestsList();
+}
+
+function renderRequestsList() {
+    const today = new Date().toDateString();
+    const incoming = requestsCache.filter(r => requestTouchesMe(r) && ['PENDING','ACCEPTED'].includes(r.status));
+    const transit = requestsCache.filter(r => requestTouchesMe(r) && r.status === 'IN_TRANSIT');
+    const completed = requestsCache.filter(r => requestTouchesMe(r) && ['COMPLETED','CANCELLED'].includes(r.status) && r.resolved_at && new Date(r.resolved_at).toDateString() === today);
+    const list = currentReqTab === 'incoming' ? incoming : currentReqTab === 'transit' ? transit : completed;
+    const body = document.getElementById('reqBody');
+    if (!list.length) { body.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><div>Čia kol kas tuščia.</div></div>`; return; }
+
+    body.innerHTML = list.map(r => {
+        const isPickup = r.request_type === 'PICKUP_RESERVATION';
+        const items = r.stock_request_items || [];
+        const itemsLabel = items.map(it => `${it.quantity}x ${it.product_variants?.product_colors?.products?.name || ''} (${it.product_variants?.size || ''})`).join(', ');
+        const needsAction = requestNeedsAction(r);
+        return `<div class="req-item ${needsAction && currentReqTab==='incoming' ? 'needs-action':''}">
+            <div class="req-top-row">
+                <span class="req-badge ${isPickup?'badge-pickup':'badge-transfer'}">${isPickup?'Atsiėmimas':'Perkėlimas'}</span>
+                <span class="status-pill">${REQ_STATUS_LABELS[r.status] || r.status}</span>
+                <span class="req-time">${new Date(r.created_at).toLocaleString('lt-LT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
+            </div>
+            <div class="req-items-label">${escapeHtml(itemsLabel)}</div>
+            <div class="req-route">${isPickup
+                ? `Atsiimti: <strong>${escapeHtml(r.source.name)}</strong>${r.customer_name ? ' — ' + escapeHtml(r.customer_name) : ''}`
+                : `${escapeHtml(r.source.name)} → ${escapeHtml(r.target.name)}`}
+                <span style="opacity:0.7;"> · ${escapeHtml(r.request_number)}</span></div>
+            <div class="req-actions">${buildRequestActions(r)}</div>
+        </div>`;
+    }).join('');
+}
+
+function buildRequestActions(r) {
+    const isAdmin = isAdminRole();
+    const iAmSource = r.source.id === DEVICE_LOCATION_ID || isAdmin;
+    const iAmTarget = r.target.id === DEVICE_LOCATION_ID || isAdmin;
+    const out = [];
+    if (r.status === 'PENDING' && iAmSource) {
+        out.push(`<button class="btn btn-success-sm" onclick="manageRequest(${r.id},'ACCEPTED')"><i class="fas fa-check"></i> Priimti</button>`);
+        out.push(`<button class="btn btn-danger-sm" onclick="manageRequest(${r.id},'CANCELLED')"><i class="fas fa-xmark"></i> Atšaukti</button>`);
+    } else if (r.status === 'ACCEPTED' && iAmSource) {
+        out.push(`<span class="transfer-note" style="margin:0;">Siuntimas patvirtinamas nuskenavus kasoje.</span>`);
+        out.push(`<button class="btn btn-danger-sm" onclick="manageRequest(${r.id},'CANCELLED')"><i class="fas fa-xmark"></i> Atšaukti</button>`);
+    } else if (r.status === 'IN_TRANSIT' && iAmTarget && r.request_type === 'STORE_TRANSFER') {
+        out.push(`<span class="transfer-note" style="margin:0;">Gavimas patvirtinamas nuskenavus kasoje.</span>`);
+    }
+    return out.join('');
+}
+
+async function manageRequest(id, newStatus) {
+    const { error } = await sb.rpc('rpc_update_stock_request_status', { p_request_id: id, p_new_status: newStatus, p_payment: null });
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Užklausa atnaujinta: ' + (REQ_STATUS_LABELS[newStatus] || newStatus), 'success');
+    await loadRequests();
+    await loadCatalog();
+}
+
+function openRequestsSheet() {
+    document.getElementById('reqScrim').classList.add('open');
+    document.getElementById('reqSheet').classList.add('open');
+}
+function closeRequestsSheet() {
+    document.getElementById('reqScrim').classList.remove('open');
+    document.getElementById('reqSheet').classList.remove('open');
+}
+
+/* ============================================================
+   REALTIME — any change to stock_requests (a new request logged from
+   the POS, or a status update from another device) pings, buzzes, and
+   flips the red dot on regardless of which screen is currently open.
+   ============================================================ */
+let inventoryReloadTimer = null;
+function queueInventoryReload() {
+    // Coalesces a burst of individual sales (each one touches `inventory`)
+    // into a single catalog refetch a couple seconds later, instead of
+    // reloading the whole grid on every single unit sold across both
+    // stores during a rush — same reasoning as the POS's own realtime
+    // patch debounce, just simplified to a plain refetch since this tool
+    // is read-mostly and a 2s lag on stock counts is a fine trade for not
+    // hammering the network on a phone.
+    if (inventoryReloadTimer) clearTimeout(inventoryReloadTimer);
+    inventoryReloadTimer = setTimeout(() => { inventoryReloadTimer = null; loadCatalog(); }, 2000);
+}
+
+function subscribeRealtime() {
+    realtimeChannel = sb.channel('stock-check-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_requests' }, () => {
+            playPing();
+            toast('Užklausų sąrašas atnaujintas.', 'info');
+            loadRequests();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, () => {
+            queueInventoryReload();
+        })
+        .subscribe();
+}
+
+checkSession();
+</script>
+</body>
+</html>
