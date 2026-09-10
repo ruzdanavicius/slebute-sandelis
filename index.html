@@ -1087,12 +1087,15 @@ function clearSearch() {
 /* ---------------- Camera scanner ----------------
    The printed label carries a QR of the plain SKU (Code128 on the older
    label style). A phone reads either. On a hit we just push the decoded
-   text into the catalogue search — no backend involved, it's a query.
+   text into whichever search field the scan was started from and fire its
+   `input` event — no backend involved, it's a query. Used by both the
+   front-page search and the "Prekių katalogas" sheet search.
    html5-qrcode is loaded lazily from a CDN the first time the button is
    tapped, so it never costs a byte on a normal app open. Needs HTTPS +
    camera permission; GitHub Pages is HTTPS. */
 let _scanner = null;
 let _scannerLibLoading = null;
+let _scanTargetInputId = 'searchInput';
 
 function _loadScannerLib() {
     if (window.Html5Qrcode) return Promise.resolve();
@@ -1107,7 +1110,8 @@ function _loadScannerLib() {
     return _scannerLibLoading;
 }
 
-async function openBarcodeScanner() {
+async function openBarcodeScanner(targetInputId) {
+    _scanTargetInputId = targetInputId || 'searchInput';
     const overlay = document.getElementById('scanOverlay');
     overlay.classList.remove('hidden');
     try {
@@ -1124,10 +1128,13 @@ async function openBarcodeScanner() {
                 if (!code) return;
                 closeBarcodeScanner();
                 try { playPing(); } catch (e) {}
-                const inp = document.getElementById('searchInput');
-                inp.value = code;
-                onSearchInput();
+                const inp = document.getElementById(_scanTargetInputId) || document.getElementById('searchInput');
+                if (inp) {
+                    inp.value = code;
+                    inp.dispatchEvent(new Event('input', { bubbles: true }));   // runs the field's own oninput filter
+                }
                 document.getElementById('gridScroll')?.scrollTo({ top: 0 });
+                document.getElementById('catBody')?.scrollTo({ top: 0 });
             },
             () => {}   // per-frame "no code in view" — normal, ignore
         );
@@ -1938,7 +1945,10 @@ function showCatalogListShell() {
     document.getElementById('catSheetTitle').innerText = 'Prekių katalogas';
     document.getElementById('catSheetSub').innerText = 'Palieskite modelį, kad redaguotumėte';
     document.getElementById('catBody').innerHTML = `
-        <input type="text" class="form-input" id="catSearchInput" placeholder="Ieškoti modelių... (pvz. kelnės mėlyna)" autocomplete="off" oninput="renderCatalogListItems()" style="margin-bottom:12px;">
+        <div style="position:relative; margin-bottom:12px;">
+            <input type="text" class="form-input" id="catSearchInput" placeholder="Ieškoti modelių... (pvz. kelnės mėlyna)" autocomplete="off" oninput="renderCatalogListItems()" style="margin-bottom:0; padding-right:44px;">
+            <button class="search-cam" onclick="openBarcodeScanner('catSearchInput')" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
+        </div>
         <button class="btn btn-primary" style="margin-bottom:14px;" onclick="startNewCatalogProduct()"><i class="fas fa-plus"></i> Naujas modelis</button>
         <div id="catListItems"></div>`;
     renderCatalogListItems();
