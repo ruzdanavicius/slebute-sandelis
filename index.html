@@ -108,12 +108,22 @@ img { -webkit-user-drag: none; }
 .search-wrap { position: relative; }
 .search-wrap i.fa-magnifying-glass { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
 #searchInput {
-    width: 100%; padding: 13px 40px 13px 40px; border-radius: 12px; border: 1px solid rgba(36,22,30,0.12);
+    width: 100%; padding: 13px 76px 13px 40px; border-radius: 12px; border: 1px solid rgba(36,22,30,0.12);
     background: var(--input-bg); color: var(--text-primary); font-size: 0.95rem; outline: none;
 }
 #searchInput:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px var(--accent-tint); }
-.search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; background: none; color: var(--text-secondary); font-size: 1rem; display: none; align-items: center; justify-content: center; }
+.search-clear { position: absolute; right: 38px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; background: none; color: var(--text-secondary); font-size: 1rem; display: none; align-items: center; justify-content: center; }
 .search-clear.show { display: flex; }
+.search-cam { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; background: none; color: var(--accent-color); font-size: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.search-cam:active { opacity: 0.6; }
+
+/* Full-screen camera scanner overlay */
+.scan-overlay { position: fixed; inset: 0; z-index: 9999; background: #0d0a0c; display: flex; flex-direction: column; }
+.scan-overlay-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; color: #fff; font-weight: 700; padding-top: calc(14px + env(safe-area-inset-top)); }
+.scan-overlay-head button { background: rgba(255,255,255,0.14); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 1rem; }
+#scanReader { flex: 1; min-height: 0; }
+#scanReader video { object-fit: cover; }
+.scan-hint { color: rgba(255,255,255,0.75); text-align: center; font-size: 0.82rem; padding: 16px 24px calc(20px + env(safe-area-inset-bottom)); }
 
 .chip-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; -ms-overflow-style: none; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
@@ -326,6 +336,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
             <i class="fas fa-magnifying-glass"></i>
             <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
             <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
+            <button class="search-cam" id="searchCamBtn" onclick="openBarcodeScanner()" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
         </div>
         <div class="chip-row" id="chipRow"></div>
     </div>
@@ -340,6 +351,17 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div id="gridScroll">
         <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
     </div>
+</div>
+
+<!-- Camera barcode/QR scanner — reads the printed label's QR (or Code128
+     fallback) and drops the decoded SKU straight into the catalogue search. -->
+<div id="scanOverlay" class="scan-overlay hidden">
+    <div class="scan-overlay-head">
+        <span>Nuskaityti etiketę</span>
+        <button onclick="closeBarcodeScanner()" aria-label="Uždaryti"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="scanReader"></div>
+    <p class="scan-hint">Nukreipkite kamerą į prekės QR kodą arba brūkšninį kodą</p>
 </div>
 
 <!-- ============ TOP-LEFT MENU ============
@@ -1060,6 +1082,69 @@ function clearSearch() {
     document.getElementById('searchClearBtn').classList.remove('show');
     lastSearchResults = null;
     renderGrid(applyFilters(products));
+}
+
+/* ---------------- Camera scanner ----------------
+   The printed label carries a QR of the plain SKU (Code128 on the older
+   label style). A phone reads either. On a hit we just push the decoded
+   text into the catalogue search — no backend involved, it's a query.
+   html5-qrcode is loaded lazily from a CDN the first time the button is
+   tapped, so it never costs a byte on a normal app open. Needs HTTPS +
+   camera permission; GitHub Pages is HTTPS. */
+let _scanner = null;
+let _scannerLibLoading = null;
+
+function _loadScannerLib() {
+    if (window.Html5Qrcode) return Promise.resolve();
+    if (_scannerLibLoading) return _scannerLibLoading;
+    _scannerLibLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        s.onload = () => resolve();
+        s.onerror = () => { _scannerLibLoading = null; reject(new Error('nepavyko įkelti skaitytuvo (nėra interneto?)')); };
+        document.head.appendChild(s);
+    });
+    return _scannerLibLoading;
+}
+
+async function openBarcodeScanner() {
+    const overlay = document.getElementById('scanOverlay');
+    overlay.classList.remove('hidden');
+    try {
+        await _loadScannerLib();
+        _scanner = new Html5Qrcode('scanReader', { verbose: false });
+        await _scanner.start(
+            { facingMode: 'environment' },
+            {
+                fps: 10,
+                qrbox: (vw, vh) => { const m = Math.floor(Math.min(vw, vh) * 0.7); return { width: m, height: m }; }
+            },
+            (decodedText) => {
+                const code = (decodedText || '').trim();
+                if (!code) return;
+                closeBarcodeScanner();
+                try { playPing(); } catch (e) {}
+                const inp = document.getElementById('searchInput');
+                inp.value = code;
+                onSearchInput();
+                document.getElementById('gridScroll')?.scrollTo({ top: 0 });
+            },
+            () => {}   // per-frame "no code in view" — normal, ignore
+        );
+    } catch (e) {
+        closeBarcodeScanner();
+        const msg = (e && e.message) ? e.message : String(e);
+        toast('Nepavyko įjungti kameros: ' + msg, 'error');
+    }
+}
+
+async function closeBarcodeScanner() {
+    document.getElementById('scanOverlay').classList.add('hidden');
+    if (_scanner) {
+        const s = _scanner; _scanner = null;
+        try { if (s.isScanning) await s.stop(); } catch (e) {}
+        try { s.clear(); } catch (e) {}
+    }
 }
 
 function renderCategoryChips() {
