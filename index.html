@@ -1125,6 +1125,11 @@ function productStorageSiblings(productId) {
             if (sq > 0) rows.push({ colorName: v.colorName, size: v.size, storeName: s.name, qty: sq });
         }
     }
+    // Size first (small→large), then colour, then store — a customer will
+    // usually take a different colour in the right size, rarely the reverse.
+    rows.sort((a, b) => compareSizes(a.size, b.size)
+        || (a.colorName || '').localeCompare(b.colorName || '')
+        || (a.storeName || '').localeCompare(b.storeName || ''));
     return rows;
 }
 
