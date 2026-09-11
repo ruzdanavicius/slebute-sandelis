@@ -131,7 +131,7 @@ img { -webkit-user-drag: none; }
 .chip.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
 
 /* ---------------- GRID ---------------- */
-#gridScroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px calc(24px + var(--safe-bottom)); }
+#gridScroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px 20px; }
 .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .pcard { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: var(--glass-border); box-shadow: 0 2px 10px rgba(36,22,30,0.05); cursor: pointer; }
 .pcard:active { transform: scale(0.98); }
@@ -253,23 +253,47 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .spinner-block { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-secondary); font-size: 0.85rem; }
 .hidden { display: none !important; }
 
-/* ---------------- TOP-LEFT MENU (Suppliers + Manage Catalogue) ----------------
-   Deliberately a lightweight dropdown, not a full bottom sheet — it only ever
-   holds a couple of navigation rows, so a heavier sheet would be waste for
-   what it does. Positioned in JS from the button's own bounding rect so it
-   still lands correctly across notch/safe-area differences. */
-.menu-click-catcher { position: fixed; inset: 0; z-index: 65; display: none; background: transparent; }
-.menu-click-catcher.open { display: block; }
-.menu-dropdown {
-    position: fixed; z-index: 70; background: var(--card-bg); border-radius: 14px;
-    box-shadow: 0 12px 32px var(--shadow-color); border: var(--glass-border);
-    padding: 6px; min-width: 216px; display: none;
-    opacity: 0; transform: translateY(-6px); transition: opacity 0.15s ease, transform 0.15s ease;
+/* ---------------- FULL PAGES ----------------
+   Replaces the old hamburger + slide-up sheets for the app's primary
+   destinations. #pageHost fills all space between the persistent topbar
+   and the bottom nav; each .page stacks full-bleed inside it and only
+   the .active one is shown — same idea as the desktop POS's own
+   .view-section/switchView() pattern, just lighter (no sidebar nav). */
+#pageHost { flex: 1; min-height: 0; position: relative; }
+.page { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg-color); }
+.page.active { display: flex; }
+.page-head { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; flex-shrink: 0; border-bottom: var(--glass-border); background: var(--card-bg); }
+.page-head-text { flex: 1; min-width: 0; }
+.page-head-text h2 { font-family: 'Fraunces', serif; font-size: 1.15rem; font-weight: 700; line-height: 1.25; }
+.page-head-text .muted { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
+.page-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 18px 26px; }
+
+/* Atsargos keeps its search/scan/category row, now living in the page
+   itself (it used to be part of the global topbar, back when the topbar
+   also held the hamburger and the requests bell). */
+.stock-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------------- BOTTOM NAV ----------------
+   5 persistent destinations, replacing the hamburger entirely. Warm
+   "boutique" tokens, not generic SaaS blue — same palette as everything
+   else in this app. A hidden .bn-item (role-gated, or not built yet)
+   just leaves its neighbours to fill the row via flex:1. */
+.bottom-nav {
+    flex-shrink: 0; display: flex; background: var(--card-bg); border-top: var(--glass-border);
+    padding: 6px 4px calc(6px + var(--safe-bottom)); box-shadow: 0 -4px 20px rgba(36,22,30,0.06); z-index: 30;
 }
-.menu-dropdown.open { display: block; opacity: 1; transform: translateY(0); }
-.menu-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer; color: var(--text-primary); }
-.menu-item i { width: 18px; text-align: center; color: var(--accent-color); }
-.menu-item:active { background: var(--input-bg); }
+.bn-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border: none; background: none; padding: 7px 2px 6px; border-radius: 14px; color: var(--text-secondary);
+    font-size: 0.62rem; font-weight: 700; cursor: pointer; min-width: 0;
+}
+.bn-item span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bn-icon-wrap { position: relative; display: inline-flex; }
+.bn-item i { font-size: 1.15rem; }
+.bn-item.active { color: var(--accent-color); }
+.bn-item.active i { transform: translateY(-1px); }
+.bn-item:active { background: var(--card-bg-raised); }
+.bn-item .bell-dot { top: -2px; right: -6px; }
 
 /* ---------------- MANAGE CATALOGUE SHEET ----------------
    Reuses the app's existing card/sheet/size-card language on purpose (same
@@ -321,24 +345,13 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 <div id="app">
     <div class="topbar">
         <div class="topbar-row">
-            <button class="icon-btn-round hidden" id="menuBtn" onclick="toggleMenuDropdown(event)" title="Meniu"><i class="fas fa-bars"></i></button>
             <div class="brand-block">
                 <div class="brand-title">Sandėlis</div>
                 <div class="brand-sub" id="storeLabel">—</div>
             </div>
-            <button class="icon-btn-round" onclick="openRequestsSheet()" title="Užsakymai tarp parduotuvių">
-                <i class="fas fa-truck-fast"></i>
-                <span class="bell-dot" id="bellDot"></span>
-            </button>
+            <button class="icon-btn-round hidden" id="mcQuickBtn" onclick="openCatalogSheet()" title="Prekių katalogas"><i class="fas fa-shirt"></i></button>
             <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
-        <div class="search-wrap">
-            <i class="fas fa-magnifying-glass"></i>
-            <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
-            <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
-            <button class="search-cam" id="searchCamBtn" onclick="openBarcodeScanner()" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
-        </div>
-        <div class="chip-row" id="chipRow"></div>
     </div>
 
     <div id="pushBanner" class="hidden" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--accent-tint); border-bottom:var(--glass-border);">
@@ -348,8 +361,67 @@ select.form-input { appearance: none; -webkit-appearance: none; }
         <button class="icon-btn-sm" onclick="dismissPushBanner()" title="Uždaryti"><i class="fas fa-xmark"></i></button>
     </div>
 
-    <div id="gridScroll">
-        <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
+    <div id="pageHost">
+        <!-- ============ ATSARGOS (default landing page) ============ -->
+        <div class="page active" id="page-stock">
+            <div class="stock-head">
+                <div class="search-wrap">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
+                    <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
+                    <button class="search-cam" id="searchCamBtn" onclick="openBarcodeScanner()" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
+                </div>
+                <div class="chip-row" id="chipRow"></div>
+            </div>
+            <div id="gridScroll">
+                <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
+            </div>
+        </div>
+
+        <!-- ============ TIEKĖJAI (admin/manager only) ============ -->
+        <div class="page" id="page-suppliers">
+            <div class="page-head">
+                <div class="page-head-text">
+                    <h2 id="supSheetTitle">Tiekėjai</h2>
+                    <div class="muted" id="supSheetSub">Palieskite tiekėją, kad redaguotumėte</div>
+                </div>
+            </div>
+            <div class="page-body" id="supBody"></div>
+        </div>
+
+        <!-- ============ UŽSAKYMAI TARP PARDUOTUVIŲ ============ -->
+        <div class="page" id="page-requests">
+            <div class="page-head" style="border-bottom:none; padding-bottom:6px;">
+                <div class="page-head-text">
+                    <h2>Užsakymai tarp parduotuvių</h2>
+                    <div class="muted">Gyva būsena — atsinaujina automatiškai</div>
+                </div>
+            </div>
+            <div class="req-tabs">
+                <div class="req-tab active" data-tab="incoming" onclick="switchReqTab('incoming')">Aktyvūs<span class="n" id="cIncoming">0</span></div>
+                <div class="req-tab" data-tab="transit" onclick="switchReqTab('transit')">Kelyje<span class="n" id="cTransit">0</span></div>
+                <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
+            </div>
+            <div class="page-body" id="reqBody"></div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="bn-item active" data-page="stock" onclick="switchPage('stock')">
+            <span class="bn-icon-wrap"><i class="fas fa-boxes-stacked"></i></span><span>Atsargos</span>
+        </button>
+        <button class="bn-item hidden" id="navSuppliers" data-page="suppliers" onclick="switchPage('suppliers')">
+            <span class="bn-icon-wrap"><i class="fas fa-truck-field"></i></span><span>Tiekėjai</span>
+        </button>
+        <button class="bn-item" data-page="requests" onclick="switchPage('requests')">
+            <span class="bn-icon-wrap"><i class="fas fa-truck-fast"></i><span class="bell-dot" id="bellDot"></span></span><span>Užsakymai</span>
+        </button>
+        <button class="bn-item hidden" id="navSales" data-page="sales" onclick="switchPage('sales')">
+            <span class="bn-icon-wrap"><i class="fas fa-cash-register"></i></span><span>Pardavimai</span>
+        </button>
+        <button class="bn-item hidden" id="navTrends" data-page="trends" onclick="switchPage('trends')">
+            <span class="bn-icon-wrap"><i class="fas fa-chart-line"></i></span><span>Trends</span>
+        </button>
     </div>
 </div>
 
@@ -362,18 +434,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     </div>
     <div id="scanReader"></div>
     <p class="scan-hint">Nukreipkite kamerą į prekės QR kodą arba brūkšninį kodą</p>
-</div>
-
-<!-- ============ TOP-LEFT MENU ============
-     Suppliers/Catalog stay admin/manager-only (hidden per-item below);
-     Storage is open to every role, same as the desktop app's own Storage
-     tab — so the menu button itself can no longer be hidden outright for
-     non-managers the way it used to be (see showApp()). -->
-<div class="menu-click-catcher" id="menuClickCatcher" onclick="closeMenuDropdown()"></div>
-<div class="menu-dropdown" id="menuDropdown">
-    <div class="menu-item" id="menuItemSuppliers" onclick="closeMenuDropdown(); openSuppliersSheet();"><i class="fas fa-truck-field"></i> Tiekėjai</div>
-    <div class="menu-item" id="menuItemCatalog" onclick="closeMenuDropdown(); openCatalogSheet();"><i class="fas fa-shirt"></i> Prekių katalogas</div>
-    <div class="menu-item" onclick="closeMenuDropdown(); openStorageSheet();"><i class="fas fa-box-archive"></i> Sandėlis</div>
 </div>
 
 <!-- ============ PRODUCT DETAIL SHEET ============ -->
@@ -391,39 +451,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="sheet-body" id="psBody"></div>
 </div>
 
-<!-- ============ REQUESTS SHEET ============ -->
-<div class="sheet-scrim" id="reqScrim" onclick="closeRequestsSheet()"></div>
-<div class="sheet" id="reqSheet" style="max-height:82vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2>Užsakymai tarp parduotuvių</h2>
-            <div class="muted">Gyva būsena — atsinaujina automatiškai</div>
-        </div>
-        <button class="sheet-close" onclick="closeRequestsSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="req-tabs">
-        <div class="req-tab active" data-tab="incoming" onclick="switchReqTab('incoming')">Aktyvūs<span class="n" id="cIncoming">0</span></div>
-        <div class="req-tab" data-tab="transit" onclick="switchReqTab('transit')">Kelyje<span class="n" id="cTransit">0</span></div>
-        <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
-    </div>
-    <div class="sheet-body" id="reqBody"></div>
-</div>
-
-<!-- ============ SUPPLIERS SHEET (admin/manager only) ============ -->
-<div class="sheet-scrim" id="supScrim" onclick="closeSuppliersSheet()"></div>
-<div class="sheet" id="supSheet" style="max-height:92vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2 id="supSheetTitle">Tiekėjai</h2>
-            <div class="muted" id="supSheetSub">Palieskite tiekėją, kad redaguotumėte</div>
-        </div>
-        <button class="sheet-close" onclick="closeSuppliersSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="sheet-body" id="supBody"></div>
-</div>
-
 <!-- ============ MANAGE CATALOGUE SHEET (admin/manager only) ============ -->
 <div class="sheet-scrim" id="catScrim" onclick="closeCatalogSheet()"></div>
 <div class="sheet" id="catSheet" style="max-height:94vh;">
@@ -436,28 +463,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
         <button class="sheet-close" onclick="closeCatalogSheet()"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="sheet-body" id="catBody"></div>
-</div>
-
-<!-- ============ STORAGE SHEET (every role) ============
-     Read-only by design — "no adjustment needed, just stocks." Moving
-     stock between display and storage stays a desktop-app-only action
-     (see SlebuteApp.html's Storage tab); this is purely a searchable
-     lookup so anyone can check what's in the back room at either store
-     without needing to be at a register. -->
-<div class="sheet-scrim" id="storageScrim" onclick="closeStorageSheet()"></div>
-<div class="sheet" id="storageSheet" style="max-height:92vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2>Sandėlis</h2>
-            <div class="muted">Ieškokite prekės, kad pamatytumėte kiekius sandėlyje</div>
-        </div>
-        <button class="sheet-close" onclick="closeStorageSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="sheet-body" id="storageBody">
-        <input type="text" class="form-input" id="storageSearchInput" placeholder="Ieškoti (modelis, spalva, SKU)..." autocomplete="off" oninput="renderStorageListItems()" style="margin-bottom:12px;">
-        <div id="storageListItems"></div>
-    </div>
 </div>
 
 <div id="toastHost"></div>
@@ -587,12 +592,11 @@ async function showApp() {
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('app').classList.add('visible');
     document.getElementById('storeLabel').innerText = (PROFILE.stores?.name || '—') + ' · ' + PROFILE.full_name;
-    // Storage (see the 3rd menu item) is open to every role, so the menu
-    // button itself always shows now — only the Suppliers/Catalog rows
-    // inside stay gated to admin/manager.
-    document.getElementById('menuBtn').classList.remove('hidden');
-    document.getElementById('menuItemSuppliers').classList.toggle('hidden', !canManageSuppliers());
-    document.getElementById('menuItemCatalog').classList.toggle('hidden', !canManageCatalog());
+    // Tiekėjai/Pardavimai/Trends/Prekių katalogas stay admin/manager-only,
+    // same gate as before (they used to be hidden menu rows; now they're
+    // hidden bottom-nav buttons / a hidden topbar icon instead).
+    document.getElementById('mcQuickBtn').classList.toggle('hidden', !canManageCatalog());
+    document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
     await loadStores();
     await loadSupplierPicker();
     await loadCatalog();
@@ -608,29 +612,16 @@ async function loadStores() {
 }
 
 /* ============================================================
-   TOP-LEFT MENU — consolidates the two admin/manager-only entry
-   points (Suppliers, Manage Catalogue) behind one icon instead of
-   stacking more raw icons into the topbar. A lightweight positioned
-   dropdown, not a sheet — it never holds more than a couple of rows,
-   so a full sheet would be waste for what it does. Logout and the
-   stock-movement (requests) icon — the two things used every single
-   day — deliberately stay exactly where they were, untouched.
+   BOTTOM NAV — replaces the old hamburger menu entirely. Atsargos and
+   Užsakymai stay open to every role (unchanged); Tiekėjai/Pardavimai/
+   Trends are hidden per-button for non-managers in showApp() (and, for
+   the two not built yet, hidden unconditionally until their own slice
+   lands — see the "hidden" class on #navSales/#navTrends in the markup).
    ============================================================ */
-function toggleMenuDropdown(e) {
-    e.stopPropagation();
-    const dd = document.getElementById('menuDropdown');
-    if (dd.classList.contains('open')) { closeMenuDropdown(); return; }
-    const btn = document.getElementById('menuBtn');
-    const rect = btn.getBoundingClientRect();
-    dd.style.top = (rect.bottom + 8) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.classList.add('open');
-    document.getElementById('menuClickCatcher').classList.add('open');
-}
-
-function closeMenuDropdown() {
-    document.getElementById('menuDropdown').classList.remove('open');
-    document.getElementById('menuClickCatcher').classList.remove('open');
+function switchPage(name) {
+    document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + name));
+    document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.page === name));
+    if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
 }
 
 async function loadSupplierPicker() {
@@ -679,20 +670,6 @@ function searchSuppliers(rawQuery) {
     if (!q) return suppliers;
     const tokens = q.split(/\s+/).filter(Boolean);
     return suppliers.filter(s => tokens.every(tok => supplierMatchesToken(s, tok)));
-}
-
-function openSuppliersSheet() {
-    if (!canManageSuppliers()) return;
-    supplierSheetMode = 'list';
-    showSupplierListShell();
-    document.getElementById('supScrim').classList.add('open');
-    document.getElementById('supSheet').classList.add('open');
-    loadSuppliers();
-}
-
-function closeSuppliersSheet() {
-    document.getElementById('supScrim').classList.remove('open');
-    document.getElementById('supSheet').classList.remove('open');
 }
 
 // Search box lives outside the re-rendered item list (same reason the
@@ -1561,14 +1538,6 @@ async function manageRequest(id, newStatus) {
     await loadCatalog();
 }
 
-function openRequestsSheet() {
-    document.getElementById('reqScrim').classList.add('open');
-    document.getElementById('reqSheet').classList.add('open');
-}
-function closeRequestsSheet() {
-    document.getElementById('reqScrim').classList.remove('open');
-    document.getElementById('reqSheet').classList.remove('open');
-}
 
 /* ============================================================
    REALTIME — any change to stock_requests (a new request logged from
@@ -1659,16 +1628,16 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // Sends the person straight to the requested screen after tapping a push
-// notification — currently only "transfers" (the requests sheet), since
+// notification — currently only "transfers" (the requests page), since
 // that's the only thing this app ever pushes about. Safe to call whether
 // or not a jump is actually pending; a normal app open just no-ops here.
 function applyPendingPushOpen() {
     if (!PENDING_PUSH_OPEN || !PROFILE) return;
     const target = PENDING_PUSH_OPEN;
     PENDING_PUSH_OPEN = null;
-    if (target === 'transfers') openRequestsSheet();
+    if (target === 'transfers') switchPage('requests');
     // Strip the param so a manual refresh/reshare of this URL doesn't
-    // keep reopening the sheet — only an actual notification tap does this.
+    // keep reopening the page — only an actual notification tap does this.
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
 }
 
@@ -1808,89 +1777,6 @@ function attachPullToRefresh(scrollEl, onRefresh) {
 
 attachPullToRefresh(document.getElementById('gridScroll'), async () => { await loadCatalog(); toast('Katalogas atnaujintas.', 'success'); });
 attachPullToRefresh(document.getElementById('reqBody'), async () => { await loadRequests(); toast('Užklausos atnaujintos.', 'success'); });
-
-/* ============================================================
-   STORAGE SHEET (mobile) — open to every role, read-only.
-   ============================================================
-   Deliberately the read-only counterpart to the desktop app's Storage
-   tab: same candidate scope (any SKU currently holding storage stock at
-   EITHER store), both stores' numbers shown side by side, but no move
-   buttons at all — "no adjustment needed, just stocks." Reuses the same
-   `products` catalog loadCatalog() already fetched (which already
-   carries storage_quantity per store, see stockByLocation[locId].storage
-   above) — no separate fetch, no separate RPC.
-   ============================================================ */
-function openStorageSheet() {
-    document.getElementById('storageScrim').classList.add('open');
-    document.getElementById('storageSheet').classList.add('open');
-    document.getElementById('storageSearchInput').value = '';
-    renderStorageListItems();
-}
-
-function closeStorageSheet() {
-    document.getElementById('storageScrim').classList.remove('open');
-    document.getElementById('storageSheet').classList.remove('open');
-}
-
-function storageSheetCandidates() {
-    const rows = [];
-    for (const p of products) {
-        for (const v of p.variants) {
-            const anyStorage = Object.values(v.stockByLocation || {}).some(loc => (loc.storage || 0) > 0);
-            if (!anyStorage) continue;
-            rows.push({ product: p, variant: v });
-        }
-    }
-    return rows;
-}
-
-// Same field coverage as the desktop app's own (now-aligned) Storage tab
-// search: name, barcode, SKU, color, category, and supplier name —
-// deliberately no size, same reasoning as the main catalog search
-// (productMatchesToken) and its desktop counterpart both use.
-function storageSheetMatchesToken(row, token) {
-    const p = row.product, v = row.variant;
-    return p.name.toLowerCase().includes(token) ||
-        (p.base_barcode || '').toLowerCase().includes(token) ||
-        (v.sku || '').toLowerCase().includes(token) ||
-        v.colorName.toLowerCase().includes(token) ||
-        (p.category || '').toLowerCase().includes(token) ||
-        productHasSupplierMatch(p, token);
-}
-
-function searchStorageSheet(rawQuery) {
-    const candidates = storageSheetCandidates();
-    const q = (rawQuery || '').trim().toLowerCase();
-    if (!q) return candidates;
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return candidates.filter(row => tokens.every(tok => storageSheetMatchesToken(row, tok)));
-}
-
-function renderStorageListItems() {
-    const box = document.getElementById('storageSearchInput');
-    const list = searchStorageSheet(box ? box.value : '');
-    const cont = document.getElementById('storageListItems');
-    if (!cont) return;
-    cont.innerHTML = list.map(row => {
-        const p = row.product, v = row.variant;
-        // Only stores that actually have some — a SKU stored at one
-        // location but not the other shouldn't show a "0" pill for the
-        // other, same "don't show non-value info" rule the product sheet's
-        // own storage pills already follow.
-        const pills = STORES.map(s => {
-            const sq = ((v.stockByLocation || {})[s.id] || {}).storage || 0;
-            if (sq <= 0) return '';
-            return `<span class="store-stock-pill storage"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${sq}</span></span>`;
-        }).filter(Boolean).join('');
-        return `<div class="sup-list-item" style="cursor:default;">
-            <div class="sup-list-item-main">
-                <div class="sup-list-item-name">${escapeHtml(p.name)} — ${escapeHtml(v.colorName)} / ${escapeHtml(v.size)}</div>
-                <div class="sup-list-item-sub">${escapeHtml(v.sku || '')}</div>
-                <div class="store-stock-row" style="margin-top:6px;">${pills}</div>
-            </div>
-        </div>`;
-    }).join('') || `<div class="empty-state" style="padding:30px 10px;"><i class="fas fa-box-archive"></i><div>${storageSheetCandidates().length ? 'Pagal paiešką nieko nerasta.' : 'Šiuo metu sandėlyje nieko nėra.'}</div></div>`;
-}
 
 /* ============================================================
    MANAGE CATALOGUE (mobile) — admin/manager only, same gate as
