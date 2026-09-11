@@ -89,6 +89,7 @@ img { -webkit-user-drag: none; }
     z-index: 30;
 }
 .topbar-row { display: flex; align-items: center; gap: 10px; }
+.brand-logo-icon { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; object-fit: cover; }
 .brand-block { flex: 1; min-width: 0; }
 .brand-title { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.15rem; line-height: 1.1; }
 .brand-sub { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -411,6 +412,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 <div id="app">
     <div class="topbar">
         <div class="topbar-row">
+            <img class="brand-logo-icon" id="brandLogoImg" alt="">
             <div class="brand-block">
                 <div class="brand-title">Sandėlis</div>
                 <div class="brand-sub" id="storeLabel">—</div>
@@ -570,6 +572,12 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 const SUPABASE_URL = 'https://bpxakmnifkrsbjhiytqf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJweGFrbW5pZmtyc2JqaGl5dHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTMzNDgsImV4cCI6MjA4MDE4OTM0OH0.kgfljhRJeLtBIy7U8QU7DEGgRdBwcquH9QVLuhalMEY';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Reuses the same embedded favicon mark (see the <link rel="icon"> in
+// <head> — the boutique dress-silhouette logo, already baked in as a data
+// URI for the home-screen icon) as the small brand mark in the topbar,
+// instead of shipping the same base64 image a second time.
+document.getElementById('brandLogoImg').src = document.querySelector('link[rel="icon"]').href;
 
 // Realtime token-refresh (locked convention, see PROJECT_LOG §3.6):
 // supabase-js does NOT forward a refreshed session token to the Realtime
