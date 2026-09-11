@@ -273,6 +273,41 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
 .img-preview-popup img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; display: block; background: var(--card-bg-raised); }
 
+/* ---------------- TRENDS — admin/manager only ---------------- */
+.trends-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+.period-tabs { display: flex; gap: 6px; }
+.period-tab { flex: 1; text-align: center; padding: 8px 4px; border-radius: 10px; background: var(--input-bg); font-size: 0.76rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+.period-tab.active { background: var(--accent-color); color: #fff; }
+
+.trends-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px calc(20px + var(--safe-bottom)); }
+.trend-card { background: var(--card-bg); border: var(--glass-border); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+.trend-card h3 { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; }
+.muted-sm { font-size: 0.78rem; color: var(--text-secondary); }
+
+.rank-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rank-row:last-child { margin-bottom: 0; }
+.rank-label { flex-shrink: 0; width: 38%; font-size: 0.78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-bar-wrap { flex: 1; background: var(--input-bg); border-radius: 6px; height: 16px; overflow: hidden; }
+.rank-bar { height: 100%; background: var(--accent-color); border-radius: 6px; }
+.rank-value { flex-shrink: 0; min-width: 52px; text-align: right; font-size: 0.74rem; font-weight: 700; }
+
+.weekday-chart { width: 100%; height: 120px; display: block; }
+.weekday-bar { fill: var(--accent-color); }
+.weekday-label { fill: var(--text-secondary); font-size: 9px; }
+
+.restock-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); }
+.restock-row:last-child { border-bottom: none; }
+.restock-name { font-size: 0.8rem; font-weight: 600; }
+.restock-sub { font-size: 0.68rem; color: var(--text-secondary); margin-top: 1px; }
+.restock-qty { font-size: 0.9rem; font-weight: 800; color: var(--accent-color); flex-shrink: 0; }
+
+.note-row { padding: 10px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); }
+.note-row:last-child { border-bottom: none; }
+.note-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.note-type-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--accent-tint); color: var(--accent-color); }
+.note-time { font-size: 0.68rem; color: var(--text-secondary); }
+.note-body { font-size: 0.82rem; line-height: 1.4; margin-bottom: 8px; }
+
 /* ---------------- TOAST ---------------- */
 #toastHost { position: fixed; left: 16px; right: 16px; bottom: calc(20px + var(--safe-bottom)); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toast { background: var(--text-primary); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.84rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25); animation: toastIn 0.2s ease; }
@@ -449,6 +484,19 @@ select.form-input { appearance: none; -webkit-appearance: none; }
                 <div id="salesSummary"></div>
             </div>
             <div class="sales-line-list" id="salesLineList"></div>
+        </div>
+
+        <!-- ============ TRENDS (admin/manager only) ============ -->
+        <div class="page" id="page-trends">
+            <div class="trends-head">
+                <div class="page-head-text" style="padding:0;"><h2>Trends</h2></div>
+                <div class="period-tabs">
+                    <div class="period-tab active" data-period="7" onclick="setTrendsPeriod(7)">7 d.</div>
+                    <div class="period-tab" data-period="30" onclick="setTrendsPeriod(30)">30 d.</div>
+                    <div class="period-tab" data-period="90" onclick="setTrendsPeriod(90)">90 d.</div>
+                </div>
+            </div>
+            <div class="trends-body" id="trendsBody"></div>
         </div>
     </div>
 
@@ -644,6 +692,7 @@ async function showApp() {
     document.getElementById('mcQuickBtn').classList.toggle('hidden', !canManageCatalog());
     document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
     document.getElementById('navSales').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('navTrends').classList.toggle('hidden', !canManageSuppliers());
     await loadStores();
     await loadSupplierPicker();
     await loadCatalog();
@@ -670,6 +719,7 @@ function switchPage(name) {
     document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.page === name));
     if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
     else if (name === 'sales') { openSalesPage(); }
+    else if (name === 'trends') { openTrendsPage(); }
 }
 
 async function loadSupplierPicker() {
@@ -1832,6 +1882,160 @@ function closeLineImgPreviewOnOutsideClick() {
 function isPageActive(name) {
     const el = document.getElementById('page-' + name);
     return !!el && el.classList.contains('active');
+}
+
+/* ============================================================
+   TRENDS — admin/manager only, same gate as Pardavimai/Tiekėjai.
+   No charting library (none exists in either app — the desktop
+   Dashboard's own charts are hand-rolled inline SVG; same approach
+   here, just narrower for a phone). Every data source already
+   exists and is already correctly RLS-scoped:
+     - rpc_get_sales_by_variant (same RPC/store rule as Pardavimai —
+       admin sees every store, a manager only their own)
+     - rpc_get_replenishment_candidates (verbatim reuse of the exact
+       RPC the desktop Dashboard's own restock card calls)
+     - customer_notes (verbatim reuse of the desktop Dashboard's own
+       "Customer Notes" read + mark-reviewed flow)
+   Zero new migrations, zero new backend work.
+   ============================================================ */
+let trendsPeriodDays = 7;
+
+function openTrendsPage() {
+    loadTrends();
+}
+
+function setTrendsPeriod(days) {
+    trendsPeriodDays = days;
+    document.querySelectorAll('.period-tab').forEach(el => el.classList.toggle('active', Number(el.dataset.period) === days));
+    loadTrends();
+}
+
+async function loadTrends() {
+    const body = document.getElementById('trendsBody');
+    body.innerHTML = `<div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div>`;
+
+    const dayEnd = new Date();
+    const dayStart = new Date();
+    dayStart.setDate(dayStart.getDate() - (trendsPeriodDays - 1));
+    dayStart.setHours(0, 0, 0, 0);
+    const storeIds = isAdminRole() ? STORES.map(s => s.id) : [DEVICE_LOCATION_ID];
+
+    const [lineResults, restockRes, notesRes] = await Promise.all([
+        Promise.all(storeIds.map(id => sb.rpc('rpc_get_sales_by_variant', { p_location_id: id, p_date_from: dayStart.toISOString(), p_date_to: dayEnd.toISOString() }))),
+        sb.rpc('rpc_get_replenishment_candidates', { p_location_id: isAdminRole() ? null : DEVICE_LOCATION_ID }),
+        sb.from('customer_notes').select('*').eq('status', 'OPEN').order('created_at', { ascending: false }).limit(20)
+    ]);
+
+    const lines = [];
+    lineResults.forEach(r => { if (!r.error && r.data) lines.push(...r.data); });
+    // Only real, completed sales feed the insight cards below — a voided
+    // or refunded line never happened as far as "what's selling" goes,
+    // same filter the desktop Daily Sales view uses for its own itemsSold
+    // count.
+    const soldLines = lines.filter(l => l.status === 'COMPLETED' && !l.is_refunded);
+
+    renderTrends(soldLines, restockRes.data || [], notesRes.data || []);
+}
+
+function renderTrends(soldLines, restock, notes) {
+    document.getElementById('trendsBody').innerHTML =
+        trendsTopSellersHtml(soldLines) +
+        trendsSizeMixHtml(soldLines) +
+        trendsWeekdayHtml(soldLines) +
+        trendsRestockHtml(restock) +
+        trendsFeedbackHtml(notes);
+}
+
+function trendsEmptyCard(title, msg) {
+    return `<div class="trend-card"><h3>${escapeHtml(title)}</h3><div class="muted-sm">${escapeHtml(msg)}</div></div>`;
+}
+
+function trendsTopSellersHtml(lines) {
+    const byProduct = new Map();
+    for (const l of lines) {
+        const cur = byProduct.get(l.product_id) || { name: l.product_name, revenue: 0 };
+        cur.revenue += Number(l.total_price || 0);
+        byProduct.set(l.product_id, cur);
+    }
+    const top = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 7);
+    if (!top.length) return trendsEmptyCard('Perkamiausios prekės', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const maxRev = Math.max(...top.map(t => t.revenue), 0.01);
+    const rows = top.map(t => `<div class="rank-row">
+        <div class="rank-label">${escapeHtml(t.name)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.max(4, t.revenue / maxRev * 100)}%;"></div></div>
+        <div class="rank-value">€${t.revenue.toFixed(0)}</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Perkamiausios prekės</h3>${rows}</div>`;
+}
+
+function trendsSizeMixHtml(lines) {
+    const bySize = new Map();
+    for (const l of lines) bySize.set(l.size || '—', (bySize.get(l.size || '—') || 0) + Number(l.quantity || 0));
+    const sizes = [...bySize.entries()].sort((a, b) => compareSizes(a[0], b[0]));
+    if (!sizes.length) return trendsEmptyCard('Dydžių pasiskirstymas', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const maxQty = Math.max(...sizes.map(s => s[1]), 1);
+    const rows = sizes.map(([size, qty]) => `<div class="rank-row">
+        <div class="rank-label" style="width:20%;">${escapeHtml(size)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.max(4, qty / maxQty * 100)}%;"></div></div>
+        <div class="rank-value">${qty} vnt.</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Dydžių pasiskirstymas</h3>${rows}</div>`;
+}
+
+const WEEKDAY_LABELS_LT = ['Sek', 'Pir', 'Ant', 'Tre', 'Ket', 'Pen', 'Šeš'];
+function trendsWeekdayHtml(lines) {
+    const byDow = new Array(7).fill(0);
+    for (const l of lines) byDow[new Date(l.created_at).getDay()] += Number(l.total_price || 0);
+    if (!byDow.some(v => v > 0)) return trendsEmptyCard('Pardavimai pagal savaitės dieną', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const max = Math.max(...byDow, 0.01);
+    const w = 320, h = 116, slot = w / 7, barW = slot - 10;
+    const bars = byDow.map((v, i) => {
+        const bh = Math.max(2, (v / max) * (h - 26));
+        const x = i * slot + 5;
+        const y = h - 22 - bh;
+        return `<rect class="weekday-bar" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4"></rect>
+                <text class="weekday-label" x="${x + barW / 2}" y="${h - 6}" text-anchor="middle">${WEEKDAY_LABELS_LT[i]}</text>`;
+    }).join('');
+    return `<div class="trend-card"><h3>Pardavimai pagal savaitės dieną</h3><svg class="weekday-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg></div>`;
+}
+
+function trendsRestockHtml(rows) {
+    const top = (rows || []).filter(r => Number(r.suggested_reorder_qty || 0) > 0)
+        .sort((a, b) => Number(b.suggested_reorder_qty || 0) - Number(a.suggested_reorder_qty || 0))
+        .slice(0, 8);
+    if (!top.length) return trendsEmptyCard('Verta papildyti', 'Šiuo metu papildymo rekomendacijų nėra.');
+    const rowsHtml = top.map(r => `<div class="restock-row">
+        <div>
+            <div class="restock-name">${escapeHtml(r.product_name)} — ${escapeHtml(r.color_name || '')} / ${escapeHtml(r.size || '')}</div>
+            <div class="restock-sub">${escapeHtml(r.location_name || '')} · liko ${r.on_hand_total ?? r.current_quantity ?? 0} vnt.</div>
+        </div>
+        <div class="restock-qty">+${r.suggested_reorder_qty}</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Verta papildyti</h3>${rowsHtml}</div>`;
+}
+
+const NOTE_TYPE_LABELS = { PRODUCT_IDEA: 'Idėja', FEEDBACK: 'Atsiliepimas', OTHER: 'Kita' };
+function trendsFeedbackHtml(notes) {
+    if (!notes.length) return trendsEmptyCard('Klientų atsiliepimai', 'Neperžiūrėtų atsiliepimų nėra.');
+    const rows = notes.map(n => {
+        const store = STORES.find(s => s.id === n.location_id);
+        return `<div class="note-row">
+            <div class="note-top">
+                ${n.note_type ? `<span class="note-type-badge">${escapeHtml(NOTE_TYPE_LABELS[n.note_type] || n.note_type)}</span>` : ''}
+                <span class="note-time">${new Date(n.created_at).toLocaleString('lt-LT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}${store ? ' · ' + escapeHtml(store.name) : ''}</span>
+            </div>
+            <div class="note-body">${escapeHtml(n.body)}</div>
+            <button class="btn btn-ghost-sm" onclick="markNoteReviewedMobile(${n.id})"><i class="fas fa-check"></i> Peržiūrėta</button>
+        </div>`;
+    }).join('');
+    return `<div class="trend-card"><h3>Klientų atsiliepimai</h3>${rows}</div>`;
+}
+
+async function markNoteReviewedMobile(id) {
+    const { error } = await sb.from('customer_notes').update({ status: 'REVIEWED', reviewed_by: PROFILE.id, reviewed_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Pažymėta kaip peržiūrėta.', 'success');
+    loadTrends();
 }
 
 /* ============================================================
