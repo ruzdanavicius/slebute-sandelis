@@ -251,12 +251,21 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(71,116,89,0.5); } 70% { box-shadow: 0 0 0 6px rgba(71,116,89,0); } 100% { box-shadow: 0 0 0 0 rgba(71,116,89,0); } }
 
 .store-sales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 8px; }
-.store-sales-card { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 10px 12px; }
-.store-sales-card.combined { background: var(--accent-tint); border-color: transparent; }
+.store-sales-card { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 10px 12px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+.store-sales-card.active { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-tint) inset; }
+/* Spans the full row, under both store cards (grid auto-placement already
+   puts it after them in source order — see renderSalesSummary) — and lays
+   out as one compact row instead of the store cards' stacked layout, so it
+   takes noticeably less height and leaves more room for the SKU list below. */
+.store-sales-card.combined { background: var(--accent-tint); border-color: transparent; grid-column: 1 / -1; padding: 8px 12px; }
+.store-sales-card.combined.active { border-color: var(--accent-color); }
 .ssc-name { font-size: 0.68rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
 .ssc-total { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
 .ssc-breakdown { display: flex; gap: 8px; font-size: 0.68rem; color: var(--text-secondary); flex-wrap: wrap; }
 .ssc-breakdown b { color: var(--text-primary); }
+.ssc-combined-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.ssc-combined-row .ssc-total { margin-bottom: 0; }
+.ssc-combined-row .ssc-breakdown { margin-top: 0; }
 
 .sales-line-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px calc(14px + var(--safe-bottom)); }
 .sale-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); cursor: pointer; }
@@ -1726,8 +1735,10 @@ function todayDateStrLocal() {
 let salesCurrentDate = todayDateStrLocal();
 let salesLineCache = [];
 let salesStoreTotals = {}; // storeId -> v_daily_sales row or null
+let salesSelectedStoreId = null; // null = every visible store combined; a store id = tapped that store's card to filter the SKU list to just it
 
 function openSalesPage() {
+    salesSelectedStoreId = null;
     document.getElementById('salesDate').value = salesCurrentDate;
     loadSalesDay(salesCurrentDate);
 }
@@ -1737,6 +1748,7 @@ function onSalesDateChange() {
     if (!v) return;
     if (v > todayDateStrLocal()) { document.getElementById('salesDate').value = salesCurrentDate; return; } // no peeking into the future
     salesCurrentDate = v;
+    salesSelectedStoreId = null;
     loadSalesDay(salesCurrentDate);
 }
 
@@ -1746,6 +1758,7 @@ function shiftSalesDay(delta) {
     const next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     if (next > todayDateStrLocal()) return;
     salesCurrentDate = next;
+    salesSelectedStoreId = null;
     document.getElementById('salesDate').value = next;
     loadSalesDay(salesCurrentDate);
 }
@@ -1777,28 +1790,48 @@ async function loadSalesDay(dateStr, silent) {
     renderSalesLines();
 }
 
-function salesStoreCardHtml(name, t, isCombined) {
+// storeId is null for the combined card (tapping it clears the filter back
+// to "every visible store") or a real store id otherwise (tapping filters
+// the SKU list below to just that store — see selectSalesStore()). The
+// combined card also gets its own compact single-row layout instead of the
+// store cards' stacked one, since it now spans the full row width.
+function salesStoreCardHtml(name, t, isCombined, storeId, isActive) {
     const gross = Number((t && t.gross_revenue) || 0);
     const cash = Number((t && t.cash_revenue) || 0);
     const card = Number((t && t.card_revenue) || 0);
     const split = Number((t && t.split_revenue) || 0);
     const orders = Number((t && t.order_count) || 0);
-    return `<div class="store-sales-card${isCombined ? ' combined' : ''}">
+    const classes = `store-sales-card${isCombined ? ' combined' : ''}${isActive ? ' active' : ''}`;
+    const breakdown = `<span>Gryn. <b>€${cash.toFixed(2)}</b></span><span>Kort. <b>€${card.toFixed(2)}</b></span>${split > 0 ? `<span>Mišr. <b>€${split.toFixed(2)}</b></span>` : ''}`;
+    if (isCombined) {
+        return `<div class="${classes}" onclick="selectSalesStore(null)">
+            <div class="ssc-name">${escapeHtml(name)}</div>
+            <div class="ssc-combined-row">
+                <div class="ssc-total">€${gross.toFixed(2)}</div>
+                <div class="ssc-breakdown">${breakdown}<span>${orders} užsak.</span></div>
+            </div>
+        </div>`;
+    }
+    return `<div class="${classes}" onclick="selectSalesStore(${storeId})">
         <div class="ssc-name">${escapeHtml(name)}</div>
         <div class="ssc-total">€${gross.toFixed(2)}</div>
-        <div class="ssc-breakdown">
-            <span>Gryn. <b>€${cash.toFixed(2)}</b></span>
-            <span>Kort. <b>€${card.toFixed(2)}</b></span>
-            ${split > 0 ? `<span>Mišr. <b>€${split.toFixed(2)}</b></span>` : ''}
-        </div>
+        <div class="ssc-breakdown">${breakdown}</div>
         <div class="ssc-breakdown" style="margin-top:3px;"><span>${orders} užsak.</span></div>
     </div>`;
+}
+
+// Toggle: tapping the already-selected store (or the combined card, whose
+// storeId is always null) clears the filter back to every visible store.
+function selectSalesStore(storeId) {
+    salesSelectedStoreId = (salesSelectedStoreId === storeId) ? null : storeId;
+    renderSalesSummary(isAdminRole() ? STORES.map(s => s.id) : [DEVICE_LOCATION_ID]);
+    renderSalesLines();
 }
 
 function renderSalesSummary(storeIds) {
     const cards = storeIds.map(id => {
         const s = STORES.find(x => x.id === id);
-        return salesStoreCardHtml(s ? s.name : '—', salesStoreTotals[id]);
+        return salesStoreCardHtml(s ? s.name : '—', salesStoreTotals[id], false, id, salesSelectedStoreId === id);
     });
     let combined = '';
     if (isAdminRole() && storeIds.length > 1) {
@@ -1812,7 +1845,7 @@ function renderSalesSummary(storeIds) {
             sum.split_revenue += Number(t.split_revenue || 0);
             sum.order_count += Number(t.order_count || 0);
         });
-        combined = salesStoreCardHtml('Iš viso', sum, true);
+        combined = salesStoreCardHtml('Iš viso', sum, true, null, salesSelectedStoreId === null);
     }
     document.getElementById('salesSummary').innerHTML = `<div class="store-sales-grid">${cards.join('')}${combined}</div>`;
 }
@@ -1838,18 +1871,23 @@ function basketDiscountShare(l, orderSubtotals) {
 
 function renderSalesLines() {
     const cont = document.getElementById('salesLineList');
-    if (!salesLineCache.length) {
+    // null = every visible store; a store id = only that store's lines
+    // (see selectSalesStore() / the tappable cards in renderSalesSummary).
+    const lines = salesSelectedStoreId == null
+        ? salesLineCache
+        : salesLineCache.filter(l => l.location_id === salesSelectedStoreId);
+    if (!lines.length) {
         cont.innerHTML = `<div class="empty-state"><i class="fas fa-receipt"></i><div>Šią dieną pardavimų nebuvo.</div></div>`;
         return;
     }
-    const orderSubtotals = computeOrderSubtotals(salesLineCache);
+    const orderSubtotals = computeOrderSubtotals(lines);
     const productById = new Map();
     const variantById = new Map();
     for (const p of products) {
         productById.set(p.id, p);
         for (const v of p.variants) variantById.set(v.id, v);
     }
-    cont.innerHTML = salesLineCache.map(l => {
+    cont.innerHTML = lines.map(l => {
         const basketShare = basketDiscountShare(l, orderSubtotals);
         const lineDiscount = Math.max(0, Number(l.unit_price) * l.quantity - Number(l.total_price)) + basketShare;
         const displayTotal = round2(Number(l.total_price) - basketShare);
