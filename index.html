@@ -315,6 +315,8 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .toast.success { background: var(--success-color); }
 .toast.error { background: var(--danger-color); }
 .toast.info { background: var(--accent-color); }
+.toast { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.toast-action-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .spinner-block { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-secondary); font-size: 0.85rem; }
@@ -615,13 +617,30 @@ function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-function toast(msg, type) {
+// action (optional): { label, onClick } — inline button, held on screen
+// longer (7s vs 3.2s) to give time to read and decide. Still auto-dismisses
+// either way — non-blocking follow-up, never a confirm(). #toastHost has
+// pointer-events:none (so toasts never block taps on content underneath),
+// so an actionable toast needs pointer-events re-enabled on itself for its
+// button to actually be tappable.
+function toast(msg, type, action) {
     const host = document.getElementById('toastHost');
     const el = document.createElement('div');
     el.className = 'toast ' + (type || '');
-    el.innerText = msg;
+    const msgEl = document.createElement('span');
+    msgEl.innerText = msg;
+    el.appendChild(msgEl);
+    if (action) {
+        el.style.pointerEvents = 'auto';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'toast-action-btn';
+        btn.innerText = action.label;
+        btn.onclick = () => { action.onClick(); el.remove(); };
+        el.appendChild(btn);
+    }
     host.appendChild(el);
-    setTimeout(() => el.remove(), 3200);
+    setTimeout(() => el.remove(), action ? 7000 : 3200);
 }
 
 function playPing() {
@@ -2574,6 +2593,42 @@ function mcStepPendingRow(btn, locationId, delta) {
     valEl.textContent = next;
 }
 
+// REORDER RESTOCK CONFLICT — mobile half of the same slice 4 also wired on
+// desktop. Called AFTER a stock increase already succeeded, never to gate
+// it. Non-blocking follow-up (a toast action button), not a confirm() — see
+// SlebuteApp's matching comment for the full reasoning. rpc_get_open_
+// reorder_for_variant / rpc_reduce_reorder_for_restock are open to any
+// authenticated staff member (not manager-gated).
+let reorderConflictShownThisSession = new Set(); // decision_id — avoids re-showing on every +1 tap of the stepper before the first prompt is resolved
+
+async function checkReorderConflict(variantId, locationId, restockedQty) {
+    if (!variantId || !locationId || !restockedQty || restockedQty <= 0) return;
+    try {
+        const { data, error } = await sb.rpc('rpc_get_open_reorder_for_variant', { p_variant_id: variantId, p_location_id: locationId });
+        if (error || !data || !data.length) return;
+        const r = data[0];
+        if (reorderConflictShownThisSession.has(r.decision_id)) return;
+        reorderConflictShownThisSession.add(r.decision_id);
+        const msg = r.decision === 'REQUESTED'
+            ? 'Ši prekė pažymėta papildymui.'
+            : `${r.decided_qty} vnt. laukia papildymo šiai prekei.`;
+        const actionLabel = r.decision === 'REQUESTED' ? 'Atšaukti prašymą' : `Sumažinti ${restockedQty}`;
+        toast(msg, 'warn', { label: actionLabel, onClick: () => resolveReorderConflict(r.decision_id, restockedQty) });
+    } catch (e) { /* best-effort — never let this block or error out the stock change it followed */ }
+}
+
+async function resolveReorderConflict(decisionId, restockedQty) {
+    try {
+        const { data, error } = await sb.rpc('rpc_reduce_reorder_for_restock', { p_decision_id: decisionId, p_restocked_qty: restockedQty });
+        if (error) throw error;
+        if (data.action === 'declined') toast('Papildymo prašymas atšauktas.', 'success');
+        else if (data.action === 'removed') toast('Pašalinta iš papildymo sąrašo — jau pilnai papildyta.', 'success');
+        else toast(`Papildymo kiekis sumažintas iki ${data.new_qty}`, 'success');
+    } catch (e) {
+        toast('Nepavyko atnaujinti papildymo sąrašo: ' + e.message, 'error');
+    }
+}
+
 // Every tap is its own immediate, audited stock_adjustments row (ARRIVAL for
 // +, CORRECTION for −) — exactly the trail a manager gets from the desktop
 // Adjust/quick-add actions, just without the modal or the typed number.
@@ -2595,6 +2650,7 @@ async function mcStepExisting(variantId, locationId, delta, btn) {
     });
     minusBtn.disabled = false; plusBtn.disabled = false;
     if (error) { valEl.textContent = current; toast(error.message, 'error'); return; }
+    if (delta > 0) checkReorderConflict(variantId, locationId, delta);
     // Patch the already-loaded catalog in place so totals elsewhere (grid,
     // product sheet) are correct without an extra round-trip — the next
     // realtime/pull-to-refresh reload will reconcile fully regardless.
