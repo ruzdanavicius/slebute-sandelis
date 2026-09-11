@@ -241,6 +241,38 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .req-route { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; }
 .req-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ---------------- PARDAVIMAI (Sales) — admin/manager only ---------------- */
+.sales-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+.date-nav { display: flex; align-items: center; gap: 8px; }
+.date-nav input[type=date] { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(36,22,30,0.14); background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; }
+.date-nav button { width: 38px; height: 38px; border-radius: 10px; border: none; background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; flex-shrink: 0; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success-color); display: inline-block; flex-shrink: 0; animation: livePulse 1.8s infinite; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(71,116,89,0.5); } 70% { box-shadow: 0 0 0 6px rgba(71,116,89,0); } 100% { box-shadow: 0 0 0 0 rgba(71,116,89,0); } }
+
+.store-sales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 8px; }
+.store-sales-card { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 10px 12px; }
+.store-sales-card.combined { background: var(--accent-tint); border-color: transparent; }
+.ssc-name { font-size: 0.68rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+.ssc-total { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+.ssc-breakdown { display: flex; gap: 8px; font-size: 0.68rem; color: var(--text-secondary); flex-wrap: wrap; }
+.ssc-breakdown b { color: var(--text-primary); }
+
+.sales-line-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px calc(14px + var(--safe-bottom)); }
+.sale-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); cursor: pointer; }
+.sale-line:last-child { border-bottom: none; }
+.sale-line.voided { opacity: 0.5; text-decoration: line-through; }
+.sl-thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--card-bg-raised); flex-shrink: 0; }
+.sl-main { flex: 1; min-width: 0; }
+.sl-name { font-size: 0.79rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-meta { font-size: 0.67rem; color: var(--text-secondary); }
+.sl-stock { font-size: 0.64rem; color: var(--text-secondary); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; }
+.sl-money { text-align: right; flex-shrink: 0; }
+.sl-amount { font-weight: 700; font-size: 0.83rem; }
+.sl-discount-badge { font-size: 0.6rem; font-weight: 700; color: #fff; background: var(--danger-color); border-radius: 6px; padding: 1px 5px; margin-left: 3px; }
+
+.img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
+.img-preview-popup img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; display: block; background: var(--card-bg-raised); }
+
 /* ---------------- TOAST ---------------- */
 #toastHost { position: fixed; left: 16px; right: 16px; bottom: calc(20px + var(--safe-bottom)); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toast { background: var(--text-primary); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.84rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25); animation: toastIn 0.2s ease; }
@@ -402,6 +434,21 @@ select.form-input { appearance: none; -webkit-appearance: none; }
                 <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
             </div>
             <div class="page-body" id="reqBody"></div>
+        </div>
+
+        <!-- ============ PARDAVIMAI (admin/manager only) ============ -->
+        <div class="page" id="page-sales">
+            <div class="sales-head">
+                <div class="page-head-text" style="padding:0;"><h2>Pardavimai</h2></div>
+                <div class="date-nav">
+                    <button onclick="shiftSalesDay(-1)" title="Ankstesnė diena"><i class="fas fa-chevron-left"></i></button>
+                    <input type="date" id="salesDate" onchange="onSalesDateChange()">
+                    <button onclick="shiftSalesDay(1)" title="Kita diena"><i class="fas fa-chevron-right"></i></button>
+                    <span class="live-dot hidden" id="salesLiveDot" title="Gyva — atsinaujina automatiškai"></span>
+                </div>
+                <div id="salesSummary"></div>
+            </div>
+            <div class="sales-line-list" id="salesLineList"></div>
         </div>
     </div>
 
@@ -596,6 +643,7 @@ async function showApp() {
     // hidden bottom-nav buttons / a hidden topbar icon instead).
     document.getElementById('mcQuickBtn').classList.toggle('hidden', !canManageCatalog());
     document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('navSales').classList.toggle('hidden', !canManageSuppliers());
     await loadStores();
     await loadSupplierPicker();
     await loadCatalog();
@@ -621,6 +669,7 @@ function switchPage(name) {
     document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + name));
     document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.page === name));
     if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
+    else if (name === 'sales') { openSalesPage(); }
 }
 
 async function loadSupplierPicker() {
@@ -1576,6 +1625,214 @@ async function manageRequest(id, newStatus) {
     await loadCatalog();
 }
 
+/* ============================================================
+   PARDAVIMAI (Sales) — admin/manager only, same gate as Tiekėjai.
+
+   RLS on `orders` is `is_admin() OR location_id = my_store_id()`
+   (confirmed live) — a manager login can only ever see their own
+   store's orders; only admin sees both. This page respects that
+   directly: a manager only ever fetches DEVICE_LOCATION_ID and never
+   renders a "combined" card (there's nothing to combine); admin
+   fetches every store and adds the combined card. Not a client-side
+   restriction we're choosing — the data simply isn't there otherwise.
+
+   Discount math (computeOrderSubtotals/basketDiscountShare) and the
+   day-bounds/RPC shape are ported from SlebuteApp.html's Daily Sales
+   view (loadDailySalesDay/renderDailySalesContent) so a number here
+   always agrees with the desktop register.
+   ============================================================ */
+function todayDateStrLocal() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+let salesCurrentDate = todayDateStrLocal();
+let salesLineCache = [];
+let salesStoreTotals = {}; // storeId -> v_daily_sales row or null
+
+function openSalesPage() {
+    document.getElementById('salesDate').value = salesCurrentDate;
+    loadSalesDay(salesCurrentDate);
+}
+
+function onSalesDateChange() {
+    const v = document.getElementById('salesDate').value;
+    if (!v) return;
+    if (v > todayDateStrLocal()) { document.getElementById('salesDate').value = salesCurrentDate; return; } // no peeking into the future
+    salesCurrentDate = v;
+    loadSalesDay(salesCurrentDate);
+}
+
+function shiftSalesDay(delta) {
+    const d = new Date(salesCurrentDate + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    const next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (next > todayDateStrLocal()) return;
+    salesCurrentDate = next;
+    document.getElementById('salesDate').value = next;
+    loadSalesDay(salesCurrentDate);
+}
+
+async function loadSalesDay(dateStr, silent) {
+    if (!silent) {
+        document.getElementById('salesSummary').innerHTML = `<div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div>`;
+        document.getElementById('salesLineList').innerHTML = '';
+    }
+    document.getElementById('salesLiveDot').classList.toggle('hidden', dateStr !== todayDateStrLocal());
+
+    const dayStart = new Date(`${dateStr}T00:00:00`).toISOString();
+    const dayEnd = new Date(`${dateStr}T23:59:59.999`).toISOString();
+    const storeIds = isAdminRole() ? STORES.map(s => s.id) : [DEVICE_LOCATION_ID];
+
+    const totals = {};
+    const allLines = [];
+    await Promise.all(storeIds.map(async storeId => {
+        const [{ data: totalRow }, { data: lines, error: linesErr }] = await Promise.all([
+            sb.from('v_daily_sales').select('*').eq('location_id', storeId).eq('sale_date', dateStr).maybeSingle(),
+            sb.rpc('rpc_get_sales_by_variant', { p_location_id: storeId, p_date_from: dayStart, p_date_to: dayEnd })
+        ]);
+        totals[storeId] = totalRow || null;
+        if (!linesErr && lines) allLines.push(...lines);
+    }));
+    salesStoreTotals = totals;
+    salesLineCache = allLines.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    renderSalesSummary(storeIds);
+    renderSalesLines();
+}
+
+function salesStoreCardHtml(name, t, isCombined) {
+    const gross = Number((t && t.gross_revenue) || 0);
+    const cash = Number((t && t.cash_revenue) || 0);
+    const card = Number((t && t.card_revenue) || 0);
+    const split = Number((t && t.split_revenue) || 0);
+    const orders = Number((t && t.order_count) || 0);
+    return `<div class="store-sales-card${isCombined ? ' combined' : ''}">
+        <div class="ssc-name">${escapeHtml(name)}</div>
+        <div class="ssc-total">€${gross.toFixed(2)}</div>
+        <div class="ssc-breakdown">
+            <span>Gryn. <b>€${cash.toFixed(2)}</b></span>
+            <span>Kort. <b>€${card.toFixed(2)}</b></span>
+            ${split > 0 ? `<span>Mišr. <b>€${split.toFixed(2)}</b></span>` : ''}
+        </div>
+        <div class="ssc-breakdown" style="margin-top:3px;"><span>${orders} užsak.</span></div>
+    </div>`;
+}
+
+function renderSalesSummary(storeIds) {
+    const cards = storeIds.map(id => {
+        const s = STORES.find(x => x.id === id);
+        return salesStoreCardHtml(s ? s.name : '—', salesStoreTotals[id]);
+    });
+    let combined = '';
+    if (isAdminRole() && storeIds.length > 1) {
+        const sum = { gross_revenue: 0, cash_revenue: 0, card_revenue: 0, split_revenue: 0, order_count: 0 };
+        storeIds.forEach(id => {
+            const t = salesStoreTotals[id];
+            if (!t) return;
+            sum.gross_revenue += Number(t.gross_revenue || 0);
+            sum.cash_revenue += Number(t.cash_revenue || 0);
+            sum.card_revenue += Number(t.card_revenue || 0);
+            sum.split_revenue += Number(t.split_revenue || 0);
+            sum.order_count += Number(t.order_count || 0);
+        });
+        combined = salesStoreCardHtml('Iš viso', sum, true);
+    }
+    document.getElementById('salesSummary').innerHTML = `<div class="store-sales-grid">${cards.join('')}${combined}</div>`;
+}
+
+// Ported verbatim from SlebuteApp.html (computeOrderSubtotals/basketDiscountShare)
+// — order_discount_amount is a basket-level absolute discount, repeated on
+// every line of that order; prorate it back onto each line by that line's
+// share of the order's own line-level subtotal, same ratio the refund flow
+// already uses at sale time.
+function round2(n) { return Math.round(n * 100) / 100; }
+function computeOrderSubtotals(lines) {
+    const totals = new Map();
+    for (const l of lines) totals.set(l.order_id, (totals.get(l.order_id) || 0) + Number(l.total_price));
+    return totals;
+}
+function basketDiscountShare(l, orderSubtotals) {
+    const orderDisc = Number(l.order_discount_amount) || 0;
+    if (orderDisc <= 0) return 0;
+    const orderSub = orderSubtotals.get(l.order_id) || 0;
+    if (orderSub <= 0) return 0;
+    return round2(orderDisc * (Number(l.total_price) / orderSub));
+}
+
+function renderSalesLines() {
+    const cont = document.getElementById('salesLineList');
+    if (!salesLineCache.length) {
+        cont.innerHTML = `<div class="empty-state"><i class="fas fa-receipt"></i><div>Šią dieną pardavimų nebuvo.</div></div>`;
+        return;
+    }
+    const orderSubtotals = computeOrderSubtotals(salesLineCache);
+    const productById = new Map();
+    const variantById = new Map();
+    for (const p of products) {
+        productById.set(p.id, p);
+        for (const v of p.variants) variantById.set(v.id, v);
+    }
+    cont.innerHTML = salesLineCache.map(l => {
+        const basketShare = basketDiscountShare(l, orderSubtotals);
+        const lineDiscount = Math.max(0, Number(l.unit_price) * l.quantity - Number(l.total_price)) + basketShare;
+        const displayTotal = round2(Number(l.total_price) - basketShare);
+        const grossBeforeDiscount = Number(l.unit_price) * l.quantity;
+        const discountPct = grossBeforeDiscount > 0 ? Math.round((lineDiscount / grossBeforeDiscount) * 100) : 0;
+        const voided = l.status !== 'COMPLETED' || l.is_refunded;
+        const p = productById.get(l.product_id);
+        const v = variantById.get(l.variant_id);
+        const imgUrl = (p && p.image_url) || '';
+        const time = new Date(l.created_at).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+        // "Likutis prekyboje" — current shop-floor (display) stock at EACH
+        // store, from the already-loaded `products` cache, no extra query.
+        // Storage is deliberately not shown here, same distinction the
+        // product sheet's pills make.
+        const stockBadges = v ? STORES.map(s => {
+            const qty = (v.stockByLocation[s.id] || {}).quantity || 0;
+            return `<span>${escapeHtml(s.name)}: <b>${qty}</b></span>`;
+        }).join('') : '';
+        return `<div class="sale-line${voided ? ' voided' : ''}" ${imgUrl ? `onclick="toggleLineImgPreview(event, '${escapeHtml(imgUrl)}')"` : ''}>
+            ${imgUrl ? `<img class="sl-thumb" src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">` : `<div class="sl-thumb"></div>`}
+            <div class="sl-main">
+                <div class="sl-name">${escapeHtml(l.product_name)} — ${escapeHtml(l.color_name)} / ${escapeHtml(l.size)}</div>
+                <div class="sl-meta">${time} · ${l.quantity} vnt.</div>
+                <div class="sl-stock">${stockBadges}</div>
+            </div>
+            <div class="sl-money">
+                <div class="sl-amount">€${displayTotal.toFixed(2)}${discountPct > 0 ? `<span class="sl-discount-badge">-${discountPct}%</span>` : ''}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Small anchored image preview on tap — same pattern as
+// toggleStorageSiblingHint(), adapted from the desktop's hover preview
+// since mobile has no hover. Mobile has no per-variant colour image
+// (rpc_get_pos_catalog() doesn't return one here), so this is always the
+// product-level photo — same source the grid card already uses.
+function toggleLineImgPreview(event, imgUrl) {
+    event.stopPropagation();
+    const existing = document.getElementById('lineImgPreview');
+    if (existing) { existing.remove(); document.removeEventListener('click', closeLineImgPreviewOnOutsideClick); return; }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.id = 'lineImgPreview';
+    popup.className = 'img-preview-popup';
+    popup.style.top = `${Math.min(rect.bottom + window.scrollY + 6, window.innerHeight - 150)}px`;
+    popup.style.left = `${Math.max(8, Math.min(rect.left + window.scrollX, window.innerWidth - 150))}px`;
+    popup.innerHTML = `<img src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">`;
+    document.body.appendChild(popup);
+    setTimeout(() => document.addEventListener('click', closeLineImgPreviewOnOutsideClick), 0);
+}
+function closeLineImgPreviewOnOutsideClick() {
+    document.getElementById('lineImgPreview')?.remove();
+    document.removeEventListener('click', closeLineImgPreviewOnOutsideClick);
+}
+
+function isPageActive(name) {
+    const el = document.getElementById('page-' + name);
+    return !!el && el.classList.contains('active');
+}
 
 /* ============================================================
    REALTIME — any change to stock_requests (a new request logged from
@@ -1607,6 +1864,13 @@ function subscribeRealtime() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, () => {
             queueInventoryReload();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            // Pardavimai only cares about today's own screen — a change
+            // while looking at a past date, or while on another page,
+            // isn't worth a silent refetch (same guard the desktop Daily
+            // Sales view uses on its own 'orders' subscription).
+            if (isPageActive('sales') && salesCurrentDate === todayDateStrLocal()) loadSalesDay(salesCurrentDate, true);
         })
         .subscribe((status) => {
             // Self-healing: a phone that gets backgrounded, locked, loses
