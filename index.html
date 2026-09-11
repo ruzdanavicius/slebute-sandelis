@@ -187,11 +187,10 @@ img { -webkit-user-drag: none; }
 .store-stock-pill .qty { font-weight: 700; }
 .store-stock-pill.zero .qty { color: var(--danger-color); }
 .store-stock-pill.low .qty { color: var(--warning-text); }
-/* Storage pills — only rendered for a store that actually has some (see
-   openProductSheet()), so a SKU with nothing in the back room shows no
-   extra row at all. Amber to match the desktop POS's own storage tint. */
-.store-stock-pill.storage { background: rgba(181,118,15,0.1); }
-.store-stock-pill.storage .qty { color: #b5760f; }
+/* Inline "(N Sandėlyje)" suffix on a stock pill (see openProductSheet())
+   — only appended when that store actually has something in the back
+   room. Amber to match the desktop POS's own storage tint. */
+.pill-storage-note { color: #b5760f; font-weight: 600; }
 .storage-hint-icon { color: #b5760f; font-size: 0.72rem; cursor: pointer; margin-left: 4px; vertical-align: middle; }
 .storage-sibling-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 10px; box-shadow: 0 12px 30px var(--shadow-color); padding: 10px 12px; font-size: 0.78rem; min-width: 180px; max-width: 260px; }
 .storage-sibling-popup-title { font-weight: 700; margin-bottom: 6px; color: #b5760f; }
@@ -1002,6 +1001,34 @@ const SALE_SEARCH_KEYWORDS = ['sale', 'clearance', 'markdown', 'nuolaida', 'nuol
 // so a search here and at the register agree on what "in storage" means.
 const STORAGE_SEARCH_KEYWORDS = ['storage', 'warehouse', 'stockroom', 'sandėlis', 'sandelis', 'sandėlyje', 'sandelyje'];
 
+// Strips Lithuanian diacritics so "sandel"/"pasil"/"seskin" (fast, no
+// special-character typing) matches "sandėlis"/"Pašilaičiai"/"Šeškinė" —
+// used everywhere below a token gets compared against a keyword or a
+// store name, never against free-text fields (name/description etc. stay
+// plain substring matches, same as before).
+function normalizeLt(s) {
+    return String(s || '').toLowerCase()
+        .replace(/[ąà]/g, 'a').replace(/[čć]/g, 'c').replace(/[ęė]/g, 'e')
+        .replace(/[įí]/g, 'i').replace(/[šś]/g, 's').replace(/[ųū]/g, 'u')
+        .replace(/[žź]/g, 'z');
+}
+// A short token (<4 chars) still requires an exact keyword match to avoid
+// noise (e.g. "sa" shouldn't match half the keyword list); 4+ chars may
+// match any keyword's prefix, diacritic-insensitive.
+function matchesKeywordList(token, keywords) {
+    if (token.length < 4) return keywords.includes(token);
+    const nt = normalizeLt(token);
+    return keywords.some(k => normalizeLt(k).startsWith(nt));
+}
+// Small EN→LT alias table for the apparel palette actually in use here —
+// not a full i18n system, just enough that "red"/"black"/... finds
+// "Raudona"/"Juoda"/... the way a casual typist would expect.
+const COLOR_ALIASES = {
+    red: 'raudona', black: 'juoda', white: 'balta', blue: 'melyna', green: 'zalia',
+    pink: 'rozine', yellow: 'geltona', grey: 'pilka', gray: 'pilka', brown: 'ruda',
+    purple: 'violetine', orange: 'oranzine', beige: 'smelio', navy: 'tamsiai melyna', cream: 'kreminis'
+};
+
 function productHasSupplierMatch(p, token) {
     if (!p.supplierId) return false;
     const sup = supplierPicker.find(s => s.id === p.supplierId);
@@ -1015,10 +1042,28 @@ function productHasClearanceVariant(p) { return p.variants.some(v => v.isClearan
 function productHasStorageVariant(p) {
     return p.variants.some(v => Object.values(v.stockByLocation || {}).some(loc => (loc.storage || 0) > 0));
 }
+// "pasil"/"seskin"-style token narrows to a specific store — true if the
+// product has ANY stock (display or storage) there. Independent of the
+// other per-token checks (same simple architecture as SALE_/STORAGE_
+// keywords — every token still ANDs together in searchProducts()), so
+// e.g. "sandel pasil" reads as "has storage somewhere" AND "has stock at
+// Pašilaičiai," not a single combined condition.
+function productHasStoreMatch(p, token) {
+    if (token.length < 4) return false;
+    const nt = normalizeLt(token);
+    const store = STORES.find(s => normalizeLt(s.name).startsWith(nt));
+    if (!store) return false;
+    return p.variants.some(v => {
+        const st = (v.stockByLocation || {})[store.id];
+        return !!st && ((st.quantity || 0) > 0 || (st.storage || 0) > 0);
+    });
+}
 
 function productMatchesToken(p, token) {
-    if (SALE_SEARCH_KEYWORDS.includes(token) && productHasClearanceVariant(p)) return true;
-    if (STORAGE_SEARCH_KEYWORDS.includes(token) && productHasStorageVariant(p)) return true;
+    if (matchesKeywordList(token, SALE_SEARCH_KEYWORDS) && productHasClearanceVariant(p)) return true;
+    if (matchesKeywordList(token, STORAGE_SEARCH_KEYWORDS) && productHasStorageVariant(p)) return true;
+    if (productHasStoreMatch(p, token)) return true;
+    const colorAlias = COLOR_ALIASES[token];
     return (
         p.name.toLowerCase().includes(token) ||
         (p.base_barcode || '').toLowerCase().includes(token) ||
@@ -1029,6 +1074,7 @@ function productMatchesToken(p, token) {
         p.variants.some(v =>
             (v.sku || '').toLowerCase().includes(token) ||
             (v.colorName || '').toLowerCase().includes(token) ||
+            (colorAlias && normalizeLt(v.colorName || '').includes(colorAlias)) ||
             (v.isClearance && (v.clearanceReason || '').toLowerCase().includes(token))
         )
     );
@@ -1254,24 +1300,17 @@ function openProductSheet(productId) {
     const body = Object.entries(byColor).map(([colorName, info]) => {
         info.sizes.sort((a, b) => compareSizes(a.size, b.size));
         const sizeCards = info.sizes.map(v => {
+            // One pill per store: display quantity drives the pill's own
+            // zero/low colour as before, plus an inline "(N Sandėlyje)"
+            // suffix when that same store also has something in the back
+            // room — no separate storage row anymore. A store with nothing
+            // in storage just shows its plain quantity, unchanged.
             const stockPills = STORES.map(s => {
-                const st = v.stockByLocation[s.id] || { quantity: 0, threshold: 2 };
+                const st = v.stockByLocation[s.id] || { quantity: 0, threshold: 2, storage: 0 };
                 const cls = st.quantity <= 0 ? 'zero' : (st.quantity <= (st.threshold != null ? st.threshold : 2) ? 'low' : '');
-                return `<span class="store-stock-pill ${cls}"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${st.quantity}</span></span>`;
+                const storageNote = (st.storage || 0) > 0 ? ` <span class="pill-storage-note">(${st.storage} Sandėlyje)</span>` : '';
+                return `<span class="store-stock-pill ${cls}"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${st.quantity}${storageNote}</span></span>`;
             }).join('');
-            // Storage row — only rendered per store where this SKU actually
-            // has something in the back room (storage is per-location, same
-            // as display: Pašilaičiai's count here is independent of
-            // Šeškinė's). A SKU with nothing in storage anywhere shows no
-            // second row at all, same "don't show non-value info" idea the
-            // desktop POS grid uses to keep storage-only SKUs off the
-            // default browsing view.
-            const storagePills = STORES.map(s => {
-                const st = v.stockByLocation[s.id] || {};
-                const sq = st.storage || 0;
-                if (sq <= 0) return '';
-                return `<span class="store-stock-pill storage"><span class="loc"><i class="fas fa-box-archive"></i> ${escapeHtml(s.name)}</span><span class="qty">${sq}</span></span>`;
-            }).filter(Boolean).join('');
             return `<div class="size-card">
                 <div class="size-card-top">
                     <div>
@@ -1282,7 +1321,6 @@ function openProductSheet(productId) {
                     <button class="transfer-toggle" onclick="toggleTransferForm(${v.id})" title="Prašyti perkėlimo"><i class="fas fa-right-left"></i></button>
                 </div>
                 <div class="store-stock-row">${stockPills}</div>
-                ${storagePills ? `<div class="store-stock-row" style="margin-top:4px;">${storagePills}</div>` : ''}
                 <div class="transfer-form" id="tf-${v.id}"></div>
             </div>`;
         }).join('');
