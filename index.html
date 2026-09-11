@@ -89,6 +89,7 @@ img { -webkit-user-drag: none; }
     z-index: 30;
 }
 .topbar-row { display: flex; align-items: center; gap: 10px; }
+.brand-logo-icon { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; object-fit: cover; }
 .brand-block { flex: 1; min-width: 0; }
 .brand-title { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.15rem; line-height: 1.1; }
 .brand-sub { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -131,7 +132,7 @@ img { -webkit-user-drag: none; }
 .chip.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
 
 /* ---------------- GRID ---------------- */
-#gridScroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px calc(24px + var(--safe-bottom)); }
+#gridScroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px 20px; }
 .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .pcard { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: var(--glass-border); box-shadow: 0 2px 10px rgba(36,22,30,0.05); cursor: pointer; }
 .pcard:active { transform: scale(0.98); }
@@ -187,11 +188,10 @@ img { -webkit-user-drag: none; }
 .store-stock-pill .qty { font-weight: 700; }
 .store-stock-pill.zero .qty { color: var(--danger-color); }
 .store-stock-pill.low .qty { color: var(--warning-text); }
-/* Storage pills — only rendered for a store that actually has some (see
-   openProductSheet()), so a SKU with nothing in the back room shows no
-   extra row at all. Amber to match the desktop POS's own storage tint. */
-.store-stock-pill.storage { background: rgba(181,118,15,0.1); }
-.store-stock-pill.storage .qty { color: #b5760f; }
+/* Inline "(N Sandėlyje)" suffix on a stock pill (see openProductSheet())
+   — only appended when that store actually has something in the back
+   room. Amber to match the desktop POS's own storage tint. */
+.pill-storage-note { color: #b5760f; font-weight: 600; }
 .storage-hint-icon { color: #b5760f; font-size: 0.72rem; cursor: pointer; margin-left: 4px; vertical-align: middle; }
 .storage-sibling-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 10px; box-shadow: 0 12px 30px var(--shadow-color); padding: 10px 12px; font-size: 0.78rem; min-width: 180px; max-width: 260px; }
 .storage-sibling-popup-title { font-weight: 700; margin-bottom: 6px; color: #b5760f; }
@@ -242,6 +242,73 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .req-route { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; }
 .req-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ---------------- PARDAVIMAI (Sales) — admin/manager only ---------------- */
+.sales-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+.date-nav { display: flex; align-items: center; gap: 8px; }
+.date-nav input[type=date] { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(36,22,30,0.14); background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; }
+.date-nav button { width: 38px; height: 38px; border-radius: 10px; border: none; background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; flex-shrink: 0; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success-color); display: inline-block; flex-shrink: 0; animation: livePulse 1.8s infinite; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(71,116,89,0.5); } 70% { box-shadow: 0 0 0 6px rgba(71,116,89,0); } 100% { box-shadow: 0 0 0 0 rgba(71,116,89,0); } }
+
+.store-sales-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 8px; }
+.store-sales-card { background: var(--card-bg); border: var(--glass-border); border-radius: 14px; padding: 10px 12px; }
+.store-sales-card.combined { background: var(--accent-tint); border-color: transparent; }
+.ssc-name { font-size: 0.68rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+.ssc-total { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+.ssc-breakdown { display: flex; gap: 8px; font-size: 0.68rem; color: var(--text-secondary); flex-wrap: wrap; }
+.ssc-breakdown b { color: var(--text-primary); }
+
+.sales-line-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px calc(14px + var(--safe-bottom)); }
+.sale-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); cursor: pointer; }
+.sale-line:last-child { border-bottom: none; }
+.sale-line.voided { opacity: 0.5; text-decoration: line-through; }
+.sl-thumb { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--card-bg-raised); flex-shrink: 0; }
+.sl-main { flex: 1; min-width: 0; }
+.sl-name { font-size: 0.79rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-meta { font-size: 0.67rem; color: var(--text-secondary); }
+.sl-stock { font-size: 0.64rem; color: var(--text-secondary); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; }
+.sl-money { text-align: right; flex-shrink: 0; }
+.sl-amount { font-weight: 700; font-size: 0.83rem; }
+.sl-discount-badge { font-size: 0.6rem; font-weight: 700; color: #fff; background: var(--danger-color); border-radius: 6px; padding: 1px 5px; margin-left: 3px; }
+
+.img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
+.img-preview-popup img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; display: block; background: var(--card-bg-raised); }
+
+/* ---------------- TRENDS — admin/manager only ---------------- */
+.trends-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+.period-tabs { display: flex; gap: 6px; }
+.period-tab { flex: 1; text-align: center; padding: 8px 4px; border-radius: 10px; background: var(--input-bg); font-size: 0.76rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+.period-tab.active { background: var(--accent-color); color: #fff; }
+
+.trends-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px calc(20px + var(--safe-bottom)); }
+.trend-card { background: var(--card-bg); border: var(--glass-border); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+.trend-card h3 { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; }
+.muted-sm { font-size: 0.78rem; color: var(--text-secondary); }
+
+.rank-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rank-row:last-child { margin-bottom: 0; }
+.rank-label { flex-shrink: 0; width: 38%; font-size: 0.78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-bar-wrap { flex: 1; background: var(--input-bg); border-radius: 6px; height: 16px; overflow: hidden; }
+.rank-bar { height: 100%; background: var(--accent-color); border-radius: 6px; }
+.rank-value { flex-shrink: 0; min-width: 52px; text-align: right; font-size: 0.74rem; font-weight: 700; }
+
+.weekday-chart { width: 100%; height: 120px; display: block; }
+.weekday-bar { fill: var(--accent-color); }
+.weekday-label { fill: var(--text-secondary); font-size: 9px; }
+
+.restock-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); }
+.restock-row:last-child { border-bottom: none; }
+.restock-name { font-size: 0.8rem; font-weight: 600; }
+.restock-sub { font-size: 0.68rem; color: var(--text-secondary); margin-top: 1px; }
+.restock-qty { font-size: 0.9rem; font-weight: 800; color: var(--accent-color); flex-shrink: 0; }
+
+.note-row { padding: 10px 0; border-bottom: 1px dashed rgba(36,22,30,0.1); }
+.note-row:last-child { border-bottom: none; }
+.note-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.note-type-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--accent-tint); color: var(--accent-color); }
+.note-time { font-size: 0.68rem; color: var(--text-secondary); }
+.note-body { font-size: 0.82rem; line-height: 1.4; margin-bottom: 8px; }
+
 /* ---------------- TOAST ---------------- */
 #toastHost { position: fixed; left: 16px; right: 16px; bottom: calc(20px + var(--safe-bottom)); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toast { background: var(--text-primary); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.84rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25); animation: toastIn 0.2s ease; }
@@ -253,23 +320,47 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .spinner-block { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-secondary); font-size: 0.85rem; }
 .hidden { display: none !important; }
 
-/* ---------------- TOP-LEFT MENU (Suppliers + Manage Catalogue) ----------------
-   Deliberately a lightweight dropdown, not a full bottom sheet — it only ever
-   holds a couple of navigation rows, so a heavier sheet would be waste for
-   what it does. Positioned in JS from the button's own bounding rect so it
-   still lands correctly across notch/safe-area differences. */
-.menu-click-catcher { position: fixed; inset: 0; z-index: 65; display: none; background: transparent; }
-.menu-click-catcher.open { display: block; }
-.menu-dropdown {
-    position: fixed; z-index: 70; background: var(--card-bg); border-radius: 14px;
-    box-shadow: 0 12px 32px var(--shadow-color); border: var(--glass-border);
-    padding: 6px; min-width: 216px; display: none;
-    opacity: 0; transform: translateY(-6px); transition: opacity 0.15s ease, transform 0.15s ease;
+/* ---------------- FULL PAGES ----------------
+   Replaces the old hamburger + slide-up sheets for the app's primary
+   destinations. #pageHost fills all space between the persistent topbar
+   and the bottom nav; each .page stacks full-bleed inside it and only
+   the .active one is shown — same idea as the desktop POS's own
+   .view-section/switchView() pattern, just lighter (no sidebar nav). */
+#pageHost { flex: 1; min-height: 0; position: relative; }
+.page { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg-color); }
+.page.active { display: flex; }
+.page-head { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; flex-shrink: 0; border-bottom: var(--glass-border); background: var(--card-bg); }
+.page-head-text { flex: 1; min-width: 0; }
+.page-head-text h2 { font-family: 'Fraunces', serif; font-size: 1.15rem; font-weight: 700; line-height: 1.25; }
+.page-head-text .muted { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
+.page-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 18px 26px; }
+
+/* Atsargos keeps its search/scan/category row, now living in the page
+   itself (it used to be part of the global topbar, back when the topbar
+   also held the hamburger and the requests bell). */
+.stock-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------------- BOTTOM NAV ----------------
+   5 persistent destinations, replacing the hamburger entirely. Warm
+   "boutique" tokens, not generic SaaS blue — same palette as everything
+   else in this app. A hidden .bn-item (role-gated, or not built yet)
+   just leaves its neighbours to fill the row via flex:1. */
+.bottom-nav {
+    flex-shrink: 0; display: flex; background: var(--card-bg); border-top: var(--glass-border);
+    padding: 6px 4px calc(6px + var(--safe-bottom)); box-shadow: 0 -4px 20px rgba(36,22,30,0.06); z-index: 30;
 }
-.menu-dropdown.open { display: block; opacity: 1; transform: translateY(0); }
-.menu-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 10px; font-size: 0.88rem; font-weight: 700; cursor: pointer; color: var(--text-primary); }
-.menu-item i { width: 18px; text-align: center; color: var(--accent-color); }
-.menu-item:active { background: var(--input-bg); }
+.bn-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border: none; background: none; padding: 7px 2px 6px; border-radius: 14px; color: var(--text-secondary);
+    font-size: 0.62rem; font-weight: 700; cursor: pointer; min-width: 0;
+}
+.bn-item span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bn-icon-wrap { position: relative; display: inline-flex; }
+.bn-item i { font-size: 1.15rem; }
+.bn-item.active { color: var(--accent-color); }
+.bn-item.active i { transform: translateY(-1px); }
+.bn-item:active { background: var(--card-bg-raised); }
+.bn-item .bell-dot { top: -2px; right: -6px; }
 
 /* ---------------- MANAGE CATALOGUE SHEET ----------------
    Reuses the app's existing card/sheet/size-card language on purpose (same
@@ -321,24 +412,14 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 <div id="app">
     <div class="topbar">
         <div class="topbar-row">
-            <button class="icon-btn-round hidden" id="menuBtn" onclick="toggleMenuDropdown(event)" title="Meniu"><i class="fas fa-bars"></i></button>
+            <img class="brand-logo-icon" id="brandLogoImg" alt="">
             <div class="brand-block">
                 <div class="brand-title">Sandėlis</div>
                 <div class="brand-sub" id="storeLabel">—</div>
             </div>
-            <button class="icon-btn-round" onclick="openRequestsSheet()" title="Užsakymai tarp parduotuvių">
-                <i class="fas fa-truck-fast"></i>
-                <span class="bell-dot" id="bellDot"></span>
-            </button>
+            <button class="icon-btn-round hidden" id="mcQuickBtn" onclick="openCatalogSheet()" title="Prekių katalogas"><i class="fas fa-shirt"></i></button>
             <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
-        <div class="search-wrap">
-            <i class="fas fa-magnifying-glass"></i>
-            <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
-            <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
-            <button class="search-cam" id="searchCamBtn" onclick="openBarcodeScanner()" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
-        </div>
-        <div class="chip-row" id="chipRow"></div>
     </div>
 
     <div id="pushBanner" class="hidden" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--accent-tint); border-bottom:var(--glass-border);">
@@ -348,8 +429,95 @@ select.form-input { appearance: none; -webkit-appearance: none; }
         <button class="icon-btn-sm" onclick="dismissPushBanner()" title="Uždaryti"><i class="fas fa-xmark"></i></button>
     </div>
 
-    <div id="gridScroll">
-        <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
+    <div id="pageHost">
+        <!-- ============ ATSARGOS (default landing page) ============ -->
+        <div class="page active" id="page-stock">
+            <div class="stock-head">
+                <div class="search-wrap">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="text" id="searchInput" placeholder="Ieškoti (modelis, spalva, tiekėjas, SKU)..." oninput="onSearchInput()" autocomplete="off">
+                    <button class="search-clear" id="searchClearBtn" onclick="clearSearch()"><i class="fas fa-xmark"></i></button>
+                    <button class="search-cam" id="searchCamBtn" onclick="openBarcodeScanner()" title="Nuskaityti etiketę" aria-label="Nuskaityti etiketę"><i class="fas fa-camera"></i></button>
+                </div>
+                <div class="chip-row" id="chipRow"></div>
+            </div>
+            <div id="gridScroll">
+                <div id="gridContent"><div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div></div>
+            </div>
+        </div>
+
+        <!-- ============ TIEKĖJAI (admin/manager only) ============ -->
+        <div class="page" id="page-suppliers">
+            <div class="page-head">
+                <div class="page-head-text">
+                    <h2 id="supSheetTitle">Tiekėjai</h2>
+                    <div class="muted" id="supSheetSub">Palieskite tiekėją, kad redaguotumėte</div>
+                </div>
+            </div>
+            <div class="page-body" id="supBody"></div>
+        </div>
+
+        <!-- ============ UŽSAKYMAI TARP PARDUOTUVIŲ ============ -->
+        <div class="page" id="page-requests">
+            <div class="page-head" style="border-bottom:none; padding-bottom:6px;">
+                <div class="page-head-text">
+                    <h2>Užsakymai tarp parduotuvių</h2>
+                    <div class="muted">Gyva būsena — atsinaujina automatiškai</div>
+                </div>
+            </div>
+            <div class="req-tabs">
+                <div class="req-tab active" data-tab="incoming" onclick="switchReqTab('incoming')">Aktyvūs<span class="n" id="cIncoming">0</span></div>
+                <div class="req-tab" data-tab="transit" onclick="switchReqTab('transit')">Kelyje<span class="n" id="cTransit">0</span></div>
+                <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
+            </div>
+            <div class="page-body" id="reqBody"></div>
+        </div>
+
+        <!-- ============ PARDAVIMAI (admin/manager only) ============ -->
+        <div class="page" id="page-sales">
+            <div class="sales-head">
+                <div class="page-head-text" style="padding:0;"><h2>Pardavimai</h2></div>
+                <div class="date-nav">
+                    <button onclick="shiftSalesDay(-1)" title="Ankstesnė diena"><i class="fas fa-chevron-left"></i></button>
+                    <input type="date" id="salesDate" onchange="onSalesDateChange()">
+                    <button onclick="shiftSalesDay(1)" title="Kita diena"><i class="fas fa-chevron-right"></i></button>
+                    <span class="live-dot hidden" id="salesLiveDot" title="Gyva — atsinaujina automatiškai"></span>
+                </div>
+                <div id="salesSummary"></div>
+            </div>
+            <div class="sales-line-list" id="salesLineList"></div>
+        </div>
+
+        <!-- ============ TRENDS (admin/manager only) ============ -->
+        <div class="page" id="page-trends">
+            <div class="trends-head">
+                <div class="page-head-text" style="padding:0;"><h2>Trends</h2></div>
+                <div class="period-tabs">
+                    <div class="period-tab active" data-period="7" onclick="setTrendsPeriod(7)">7 d.</div>
+                    <div class="period-tab" data-period="30" onclick="setTrendsPeriod(30)">30 d.</div>
+                    <div class="period-tab" data-period="90" onclick="setTrendsPeriod(90)">90 d.</div>
+                </div>
+            </div>
+            <div class="trends-body" id="trendsBody"></div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="bn-item active" data-page="stock" onclick="switchPage('stock')">
+            <span class="bn-icon-wrap"><i class="fas fa-boxes-stacked"></i></span><span>Atsargos</span>
+        </button>
+        <button class="bn-item hidden" id="navSuppliers" data-page="suppliers" onclick="switchPage('suppliers')">
+            <span class="bn-icon-wrap"><i class="fas fa-truck-field"></i></span><span>Tiekėjai</span>
+        </button>
+        <button class="bn-item" data-page="requests" onclick="switchPage('requests')">
+            <span class="bn-icon-wrap"><i class="fas fa-truck-fast"></i><span class="bell-dot" id="bellDot"></span></span><span>Užsakymai</span>
+        </button>
+        <button class="bn-item hidden" id="navSales" data-page="sales" onclick="switchPage('sales')">
+            <span class="bn-icon-wrap"><i class="fas fa-cash-register"></i></span><span>Pardavimai</span>
+        </button>
+        <button class="bn-item hidden" id="navTrends" data-page="trends" onclick="switchPage('trends')">
+            <span class="bn-icon-wrap"><i class="fas fa-chart-line"></i></span><span>Trends</span>
+        </button>
     </div>
 </div>
 
@@ -362,18 +530,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     </div>
     <div id="scanReader"></div>
     <p class="scan-hint">Nukreipkite kamerą į prekės QR kodą arba brūkšninį kodą</p>
-</div>
-
-<!-- ============ TOP-LEFT MENU ============
-     Suppliers/Catalog stay admin/manager-only (hidden per-item below);
-     Storage is open to every role, same as the desktop app's own Storage
-     tab — so the menu button itself can no longer be hidden outright for
-     non-managers the way it used to be (see showApp()). -->
-<div class="menu-click-catcher" id="menuClickCatcher" onclick="closeMenuDropdown()"></div>
-<div class="menu-dropdown" id="menuDropdown">
-    <div class="menu-item" id="menuItemSuppliers" onclick="closeMenuDropdown(); openSuppliersSheet();"><i class="fas fa-truck-field"></i> Tiekėjai</div>
-    <div class="menu-item" id="menuItemCatalog" onclick="closeMenuDropdown(); openCatalogSheet();"><i class="fas fa-shirt"></i> Prekių katalogas</div>
-    <div class="menu-item" onclick="closeMenuDropdown(); openStorageSheet();"><i class="fas fa-box-archive"></i> Sandėlis</div>
 </div>
 
 <!-- ============ PRODUCT DETAIL SHEET ============ -->
@@ -391,39 +547,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="sheet-body" id="psBody"></div>
 </div>
 
-<!-- ============ REQUESTS SHEET ============ -->
-<div class="sheet-scrim" id="reqScrim" onclick="closeRequestsSheet()"></div>
-<div class="sheet" id="reqSheet" style="max-height:82vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2>Užsakymai tarp parduotuvių</h2>
-            <div class="muted">Gyva būsena — atsinaujina automatiškai</div>
-        </div>
-        <button class="sheet-close" onclick="closeRequestsSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="req-tabs">
-        <div class="req-tab active" data-tab="incoming" onclick="switchReqTab('incoming')">Aktyvūs<span class="n" id="cIncoming">0</span></div>
-        <div class="req-tab" data-tab="transit" onclick="switchReqTab('transit')">Kelyje<span class="n" id="cTransit">0</span></div>
-        <div class="req-tab" data-tab="completed" onclick="switchReqTab('completed')">Šiandien<span class="n" id="cCompleted">0</span></div>
-    </div>
-    <div class="sheet-body" id="reqBody"></div>
-</div>
-
-<!-- ============ SUPPLIERS SHEET (admin/manager only) ============ -->
-<div class="sheet-scrim" id="supScrim" onclick="closeSuppliersSheet()"></div>
-<div class="sheet" id="supSheet" style="max-height:92vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2 id="supSheetTitle">Tiekėjai</h2>
-            <div class="muted" id="supSheetSub">Palieskite tiekėją, kad redaguotumėte</div>
-        </div>
-        <button class="sheet-close" onclick="closeSuppliersSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="sheet-body" id="supBody"></div>
-</div>
-
 <!-- ============ MANAGE CATALOGUE SHEET (admin/manager only) ============ -->
 <div class="sheet-scrim" id="catScrim" onclick="closeCatalogSheet()"></div>
 <div class="sheet" id="catSheet" style="max-height:94vh;">
@@ -438,28 +561,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="sheet-body" id="catBody"></div>
 </div>
 
-<!-- ============ STORAGE SHEET (every role) ============
-     Read-only by design — "no adjustment needed, just stocks." Moving
-     stock between display and storage stays a desktop-app-only action
-     (see SlebuteApp.html's Storage tab); this is purely a searchable
-     lookup so anyone can check what's in the back room at either store
-     without needing to be at a register. -->
-<div class="sheet-scrim" id="storageScrim" onclick="closeStorageSheet()"></div>
-<div class="sheet" id="storageSheet" style="max-height:92vh;">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
-        <div class="sheet-head-text">
-            <h2>Sandėlis</h2>
-            <div class="muted">Ieškokite prekės, kad pamatytumėte kiekius sandėlyje</div>
-        </div>
-        <button class="sheet-close" onclick="closeStorageSheet()"><i class="fas fa-xmark"></i></button>
-    </div>
-    <div class="sheet-body" id="storageBody">
-        <input type="text" class="form-input" id="storageSearchInput" placeholder="Ieškoti (modelis, spalva, SKU)..." autocomplete="off" oninput="renderStorageListItems()" style="margin-bottom:12px;">
-        <div id="storageListItems"></div>
-    </div>
-</div>
-
 <div id="toastHost"></div>
 
 <script>
@@ -471,6 +572,12 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 const SUPABASE_URL = 'https://bpxakmnifkrsbjhiytqf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJweGFrbW5pZmtyc2JqaGl5dHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTMzNDgsImV4cCI6MjA4MDE4OTM0OH0.kgfljhRJeLtBIy7U8QU7DEGgRdBwcquH9QVLuhalMEY';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Reuses the same embedded favicon mark (see the <link rel="icon"> in
+// <head> — the boutique dress-silhouette logo, already baked in as a data
+// URI for the home-screen icon) as the small brand mark in the topbar,
+// instead of shipping the same base64 image a second time.
+document.getElementById('brandLogoImg').src = document.querySelector('link[rel="icon"]').href;
 
 // Realtime token-refresh (locked convention, see PROJECT_LOG §3.6):
 // supabase-js does NOT forward a refreshed session token to the Realtime
@@ -587,12 +694,13 @@ async function showApp() {
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('app').classList.add('visible');
     document.getElementById('storeLabel').innerText = (PROFILE.stores?.name || '—') + ' · ' + PROFILE.full_name;
-    // Storage (see the 3rd menu item) is open to every role, so the menu
-    // button itself always shows now — only the Suppliers/Catalog rows
-    // inside stay gated to admin/manager.
-    document.getElementById('menuBtn').classList.remove('hidden');
-    document.getElementById('menuItemSuppliers').classList.toggle('hidden', !canManageSuppliers());
-    document.getElementById('menuItemCatalog').classList.toggle('hidden', !canManageCatalog());
+    // Tiekėjai/Pardavimai/Trends/Prekių katalogas stay admin/manager-only,
+    // same gate as before (they used to be hidden menu rows; now they're
+    // hidden bottom-nav buttons / a hidden topbar icon instead).
+    document.getElementById('mcQuickBtn').classList.toggle('hidden', !canManageCatalog());
+    document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('navSales').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('navTrends').classList.toggle('hidden', !canManageSuppliers());
     await loadStores();
     await loadSupplierPicker();
     await loadCatalog();
@@ -608,29 +716,18 @@ async function loadStores() {
 }
 
 /* ============================================================
-   TOP-LEFT MENU — consolidates the two admin/manager-only entry
-   points (Suppliers, Manage Catalogue) behind one icon instead of
-   stacking more raw icons into the topbar. A lightweight positioned
-   dropdown, not a sheet — it never holds more than a couple of rows,
-   so a full sheet would be waste for what it does. Logout and the
-   stock-movement (requests) icon — the two things used every single
-   day — deliberately stay exactly where they were, untouched.
+   BOTTOM NAV — replaces the old hamburger menu entirely. Atsargos and
+   Užsakymai stay open to every role (unchanged); Tiekėjai/Pardavimai/
+   Trends are hidden per-button for non-managers in showApp() (and, for
+   the two not built yet, hidden unconditionally until their own slice
+   lands — see the "hidden" class on #navSales/#navTrends in the markup).
    ============================================================ */
-function toggleMenuDropdown(e) {
-    e.stopPropagation();
-    const dd = document.getElementById('menuDropdown');
-    if (dd.classList.contains('open')) { closeMenuDropdown(); return; }
-    const btn = document.getElementById('menuBtn');
-    const rect = btn.getBoundingClientRect();
-    dd.style.top = (rect.bottom + 8) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.classList.add('open');
-    document.getElementById('menuClickCatcher').classList.add('open');
-}
-
-function closeMenuDropdown() {
-    document.getElementById('menuDropdown').classList.remove('open');
-    document.getElementById('menuClickCatcher').classList.remove('open');
+function switchPage(name) {
+    document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + name));
+    document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.page === name));
+    if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
+    else if (name === 'sales') { openSalesPage(); }
+    else if (name === 'trends') { openTrendsPage(); }
 }
 
 async function loadSupplierPicker() {
@@ -679,20 +776,6 @@ function searchSuppliers(rawQuery) {
     if (!q) return suppliers;
     const tokens = q.split(/\s+/).filter(Boolean);
     return suppliers.filter(s => tokens.every(tok => supplierMatchesToken(s, tok)));
-}
-
-function openSuppliersSheet() {
-    if (!canManageSuppliers()) return;
-    supplierSheetMode = 'list';
-    showSupplierListShell();
-    document.getElementById('supScrim').classList.add('open');
-    document.getElementById('supSheet').classList.add('open');
-    loadSuppliers();
-}
-
-function closeSuppliersSheet() {
-    document.getElementById('supScrim').classList.remove('open');
-    document.getElementById('supSheet').classList.remove('open');
 }
 
 // Search box lives outside the re-rendered item list (same reason the
@@ -1025,6 +1108,34 @@ const SALE_SEARCH_KEYWORDS = ['sale', 'clearance', 'markdown', 'nuolaida', 'nuol
 // so a search here and at the register agree on what "in storage" means.
 const STORAGE_SEARCH_KEYWORDS = ['storage', 'warehouse', 'stockroom', 'sandėlis', 'sandelis', 'sandėlyje', 'sandelyje'];
 
+// Strips Lithuanian diacritics so "sandel"/"pasil"/"seskin" (fast, no
+// special-character typing) matches "sandėlis"/"Pašilaičiai"/"Šeškinė" —
+// used everywhere below a token gets compared against a keyword or a
+// store name, never against free-text fields (name/description etc. stay
+// plain substring matches, same as before).
+function normalizeLt(s) {
+    return String(s || '').toLowerCase()
+        .replace(/[ąà]/g, 'a').replace(/[čć]/g, 'c').replace(/[ęė]/g, 'e')
+        .replace(/[įí]/g, 'i').replace(/[šś]/g, 's').replace(/[ųū]/g, 'u')
+        .replace(/[žź]/g, 'z');
+}
+// A short token (<4 chars) still requires an exact keyword match to avoid
+// noise (e.g. "sa" shouldn't match half the keyword list); 4+ chars may
+// match any keyword's prefix, diacritic-insensitive.
+function matchesKeywordList(token, keywords) {
+    if (token.length < 4) return keywords.includes(token);
+    const nt = normalizeLt(token);
+    return keywords.some(k => normalizeLt(k).startsWith(nt));
+}
+// Small EN→LT alias table for the apparel palette actually in use here —
+// not a full i18n system, just enough that "red"/"black"/... finds
+// "Raudona"/"Juoda"/... the way a casual typist would expect.
+const COLOR_ALIASES = {
+    red: 'raudona', black: 'juoda', white: 'balta', blue: 'melyna', green: 'zalia',
+    pink: 'rozine', yellow: 'geltona', grey: 'pilka', gray: 'pilka', brown: 'ruda',
+    purple: 'violetine', orange: 'oranzine', beige: 'smelio', navy: 'tamsiai melyna', cream: 'kreminis'
+};
+
 function productHasSupplierMatch(p, token) {
     if (!p.supplierId) return false;
     const sup = supplierPicker.find(s => s.id === p.supplierId);
@@ -1038,10 +1149,28 @@ function productHasClearanceVariant(p) { return p.variants.some(v => v.isClearan
 function productHasStorageVariant(p) {
     return p.variants.some(v => Object.values(v.stockByLocation || {}).some(loc => (loc.storage || 0) > 0));
 }
+// "pasil"/"seskin"-style token narrows to a specific store — true if the
+// product has ANY stock (display or storage) there. Independent of the
+// other per-token checks (same simple architecture as SALE_/STORAGE_
+// keywords — every token still ANDs together in searchProducts()), so
+// e.g. "sandel pasil" reads as "has storage somewhere" AND "has stock at
+// Pašilaičiai," not a single combined condition.
+function productHasStoreMatch(p, token) {
+    if (token.length < 4) return false;
+    const nt = normalizeLt(token);
+    const store = STORES.find(s => normalizeLt(s.name).startsWith(nt));
+    if (!store) return false;
+    return p.variants.some(v => {
+        const st = (v.stockByLocation || {})[store.id];
+        return !!st && ((st.quantity || 0) > 0 || (st.storage || 0) > 0);
+    });
+}
 
 function productMatchesToken(p, token) {
-    if (SALE_SEARCH_KEYWORDS.includes(token) && productHasClearanceVariant(p)) return true;
-    if (STORAGE_SEARCH_KEYWORDS.includes(token) && productHasStorageVariant(p)) return true;
+    if (matchesKeywordList(token, SALE_SEARCH_KEYWORDS) && productHasClearanceVariant(p)) return true;
+    if (matchesKeywordList(token, STORAGE_SEARCH_KEYWORDS) && productHasStorageVariant(p)) return true;
+    if (productHasStoreMatch(p, token)) return true;
+    const colorAlias = COLOR_ALIASES[token];
     return (
         p.name.toLowerCase().includes(token) ||
         (p.base_barcode || '').toLowerCase().includes(token) ||
@@ -1052,6 +1181,7 @@ function productMatchesToken(p, token) {
         p.variants.some(v =>
             (v.sku || '').toLowerCase().includes(token) ||
             (v.colorName || '').toLowerCase().includes(token) ||
+            (colorAlias && normalizeLt(v.colorName || '').includes(colorAlias)) ||
             (v.isClearance && (v.clearanceReason || '').toLowerCase().includes(token))
         )
     );
@@ -1277,24 +1407,17 @@ function openProductSheet(productId) {
     const body = Object.entries(byColor).map(([colorName, info]) => {
         info.sizes.sort((a, b) => compareSizes(a.size, b.size));
         const sizeCards = info.sizes.map(v => {
+            // One pill per store: display quantity drives the pill's own
+            // zero/low colour as before, plus an inline "(N Sandėlyje)"
+            // suffix when that same store also has something in the back
+            // room — no separate storage row anymore. A store with nothing
+            // in storage just shows its plain quantity, unchanged.
             const stockPills = STORES.map(s => {
-                const st = v.stockByLocation[s.id] || { quantity: 0, threshold: 2 };
+                const st = v.stockByLocation[s.id] || { quantity: 0, threshold: 2, storage: 0 };
                 const cls = st.quantity <= 0 ? 'zero' : (st.quantity <= (st.threshold != null ? st.threshold : 2) ? 'low' : '');
-                return `<span class="store-stock-pill ${cls}"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${st.quantity}</span></span>`;
+                const storageNote = (st.storage || 0) > 0 ? ` <span class="pill-storage-note">(${st.storage} Sandėlyje)</span>` : '';
+                return `<span class="store-stock-pill ${cls}"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${st.quantity}${storageNote}</span></span>`;
             }).join('');
-            // Storage row — only rendered per store where this SKU actually
-            // has something in the back room (storage is per-location, same
-            // as display: Pašilaičiai's count here is independent of
-            // Šeškinė's). A SKU with nothing in storage anywhere shows no
-            // second row at all, same "don't show non-value info" idea the
-            // desktop POS grid uses to keep storage-only SKUs off the
-            // default browsing view.
-            const storagePills = STORES.map(s => {
-                const st = v.stockByLocation[s.id] || {};
-                const sq = st.storage || 0;
-                if (sq <= 0) return '';
-                return `<span class="store-stock-pill storage"><span class="loc"><i class="fas fa-box-archive"></i> ${escapeHtml(s.name)}</span><span class="qty">${sq}</span></span>`;
-            }).filter(Boolean).join('');
             return `<div class="size-card">
                 <div class="size-card-top">
                     <div>
@@ -1305,7 +1428,6 @@ function openProductSheet(productId) {
                     <button class="transfer-toggle" onclick="toggleTransferForm(${v.id})" title="Prašyti perkėlimo"><i class="fas fa-right-left"></i></button>
                 </div>
                 <div class="store-stock-row">${stockPills}</div>
-                ${storagePills ? `<div class="store-stock-row" style="margin-top:4px;">${storagePills}</div>` : ''}
                 <div class="transfer-form" id="tf-${v.id}"></div>
             </div>`;
         }).join('');
@@ -1561,13 +1683,367 @@ async function manageRequest(id, newStatus) {
     await loadCatalog();
 }
 
-function openRequestsSheet() {
-    document.getElementById('reqScrim').classList.add('open');
-    document.getElementById('reqSheet').classList.add('open');
+/* ============================================================
+   PARDAVIMAI (Sales) — admin/manager only, same gate as Tiekėjai.
+
+   RLS on `orders` is `is_admin() OR location_id = my_store_id()`
+   (confirmed live) — a manager login can only ever see their own
+   store's orders; only admin sees both. This page respects that
+   directly: a manager only ever fetches DEVICE_LOCATION_ID and never
+   renders a "combined" card (there's nothing to combine); admin
+   fetches every store and adds the combined card. Not a client-side
+   restriction we're choosing — the data simply isn't there otherwise.
+
+   Discount math (computeOrderSubtotals/basketDiscountShare) and the
+   day-bounds/RPC shape are ported from SlebuteApp.html's Daily Sales
+   view (loadDailySalesDay/renderDailySalesContent) so a number here
+   always agrees with the desktop register.
+   ============================================================ */
+function todayDateStrLocal() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function closeRequestsSheet() {
-    document.getElementById('reqScrim').classList.remove('open');
-    document.getElementById('reqSheet').classList.remove('open');
+
+let salesCurrentDate = todayDateStrLocal();
+let salesLineCache = [];
+let salesStoreTotals = {}; // storeId -> v_daily_sales row or null
+
+function openSalesPage() {
+    document.getElementById('salesDate').value = salesCurrentDate;
+    loadSalesDay(salesCurrentDate);
+}
+
+function onSalesDateChange() {
+    const v = document.getElementById('salesDate').value;
+    if (!v) return;
+    if (v > todayDateStrLocal()) { document.getElementById('salesDate').value = salesCurrentDate; return; } // no peeking into the future
+    salesCurrentDate = v;
+    loadSalesDay(salesCurrentDate);
+}
+
+function shiftSalesDay(delta) {
+    const d = new Date(salesCurrentDate + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    const next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (next > todayDateStrLocal()) return;
+    salesCurrentDate = next;
+    document.getElementById('salesDate').value = next;
+    loadSalesDay(salesCurrentDate);
+}
+
+async function loadSalesDay(dateStr, silent) {
+    if (!silent) {
+        document.getElementById('salesSummary').innerHTML = `<div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div>`;
+        document.getElementById('salesLineList').innerHTML = '';
+    }
+    document.getElementById('salesLiveDot').classList.toggle('hidden', dateStr !== todayDateStrLocal());
+
+    const dayStart = new Date(`${dateStr}T00:00:00`).toISOString();
+    const dayEnd = new Date(`${dateStr}T23:59:59.999`).toISOString();
+    const storeIds = isAdminRole() ? STORES.map(s => s.id) : [DEVICE_LOCATION_ID];
+
+    const totals = {};
+    const allLines = [];
+    await Promise.all(storeIds.map(async storeId => {
+        const [{ data: totalRow }, { data: lines, error: linesErr }] = await Promise.all([
+            sb.from('v_daily_sales').select('*').eq('location_id', storeId).eq('sale_date', dateStr).maybeSingle(),
+            sb.rpc('rpc_get_sales_by_variant', { p_location_id: storeId, p_date_from: dayStart, p_date_to: dayEnd })
+        ]);
+        totals[storeId] = totalRow || null;
+        if (!linesErr && lines) allLines.push(...lines);
+    }));
+    salesStoreTotals = totals;
+    salesLineCache = allLines.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    renderSalesSummary(storeIds);
+    renderSalesLines();
+}
+
+function salesStoreCardHtml(name, t, isCombined) {
+    const gross = Number((t && t.gross_revenue) || 0);
+    const cash = Number((t && t.cash_revenue) || 0);
+    const card = Number((t && t.card_revenue) || 0);
+    const split = Number((t && t.split_revenue) || 0);
+    const orders = Number((t && t.order_count) || 0);
+    return `<div class="store-sales-card${isCombined ? ' combined' : ''}">
+        <div class="ssc-name">${escapeHtml(name)}</div>
+        <div class="ssc-total">€${gross.toFixed(2)}</div>
+        <div class="ssc-breakdown">
+            <span>Gryn. <b>€${cash.toFixed(2)}</b></span>
+            <span>Kort. <b>€${card.toFixed(2)}</b></span>
+            ${split > 0 ? `<span>Mišr. <b>€${split.toFixed(2)}</b></span>` : ''}
+        </div>
+        <div class="ssc-breakdown" style="margin-top:3px;"><span>${orders} užsak.</span></div>
+    </div>`;
+}
+
+function renderSalesSummary(storeIds) {
+    const cards = storeIds.map(id => {
+        const s = STORES.find(x => x.id === id);
+        return salesStoreCardHtml(s ? s.name : '—', salesStoreTotals[id]);
+    });
+    let combined = '';
+    if (isAdminRole() && storeIds.length > 1) {
+        const sum = { gross_revenue: 0, cash_revenue: 0, card_revenue: 0, split_revenue: 0, order_count: 0 };
+        storeIds.forEach(id => {
+            const t = salesStoreTotals[id];
+            if (!t) return;
+            sum.gross_revenue += Number(t.gross_revenue || 0);
+            sum.cash_revenue += Number(t.cash_revenue || 0);
+            sum.card_revenue += Number(t.card_revenue || 0);
+            sum.split_revenue += Number(t.split_revenue || 0);
+            sum.order_count += Number(t.order_count || 0);
+        });
+        combined = salesStoreCardHtml('Iš viso', sum, true);
+    }
+    document.getElementById('salesSummary').innerHTML = `<div class="store-sales-grid">${cards.join('')}${combined}</div>`;
+}
+
+// Ported verbatim from SlebuteApp.html (computeOrderSubtotals/basketDiscountShare)
+// — order_discount_amount is a basket-level absolute discount, repeated on
+// every line of that order; prorate it back onto each line by that line's
+// share of the order's own line-level subtotal, same ratio the refund flow
+// already uses at sale time.
+function round2(n) { return Math.round(n * 100) / 100; }
+function computeOrderSubtotals(lines) {
+    const totals = new Map();
+    for (const l of lines) totals.set(l.order_id, (totals.get(l.order_id) || 0) + Number(l.total_price));
+    return totals;
+}
+function basketDiscountShare(l, orderSubtotals) {
+    const orderDisc = Number(l.order_discount_amount) || 0;
+    if (orderDisc <= 0) return 0;
+    const orderSub = orderSubtotals.get(l.order_id) || 0;
+    if (orderSub <= 0) return 0;
+    return round2(orderDisc * (Number(l.total_price) / orderSub));
+}
+
+function renderSalesLines() {
+    const cont = document.getElementById('salesLineList');
+    if (!salesLineCache.length) {
+        cont.innerHTML = `<div class="empty-state"><i class="fas fa-receipt"></i><div>Šią dieną pardavimų nebuvo.</div></div>`;
+        return;
+    }
+    const orderSubtotals = computeOrderSubtotals(salesLineCache);
+    const productById = new Map();
+    const variantById = new Map();
+    for (const p of products) {
+        productById.set(p.id, p);
+        for (const v of p.variants) variantById.set(v.id, v);
+    }
+    cont.innerHTML = salesLineCache.map(l => {
+        const basketShare = basketDiscountShare(l, orderSubtotals);
+        const lineDiscount = Math.max(0, Number(l.unit_price) * l.quantity - Number(l.total_price)) + basketShare;
+        const displayTotal = round2(Number(l.total_price) - basketShare);
+        const grossBeforeDiscount = Number(l.unit_price) * l.quantity;
+        const discountPct = grossBeforeDiscount > 0 ? Math.round((lineDiscount / grossBeforeDiscount) * 100) : 0;
+        const voided = l.status !== 'COMPLETED' || l.is_refunded;
+        const p = productById.get(l.product_id);
+        const v = variantById.get(l.variant_id);
+        const imgUrl = (p && p.image_url) || '';
+        const time = new Date(l.created_at).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+        // "Likutis prekyboje" — current shop-floor (display) stock at EACH
+        // store, from the already-loaded `products` cache, no extra query.
+        // Storage is deliberately not shown here, same distinction the
+        // product sheet's pills make.
+        const stockBadges = v ? STORES.map(s => {
+            const qty = (v.stockByLocation[s.id] || {}).quantity || 0;
+            return `<span>${escapeHtml(s.name)}: <b>${qty}</b></span>`;
+        }).join('') : '';
+        return `<div class="sale-line${voided ? ' voided' : ''}" ${imgUrl ? `onclick="toggleLineImgPreview(event, '${escapeHtml(imgUrl)}')"` : ''}>
+            ${imgUrl ? `<img class="sl-thumb" src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">` : `<div class="sl-thumb"></div>`}
+            <div class="sl-main">
+                <div class="sl-name">${escapeHtml(l.product_name)} — ${escapeHtml(l.color_name)} / ${escapeHtml(l.size)}</div>
+                <div class="sl-meta">${time} · ${l.quantity} vnt.</div>
+                <div class="sl-stock">${stockBadges}</div>
+            </div>
+            <div class="sl-money">
+                <div class="sl-amount">€${displayTotal.toFixed(2)}${discountPct > 0 ? `<span class="sl-discount-badge">-${discountPct}%</span>` : ''}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Small anchored image preview on tap — same pattern as
+// toggleStorageSiblingHint(), adapted from the desktop's hover preview
+// since mobile has no hover. Mobile has no per-variant colour image
+// (rpc_get_pos_catalog() doesn't return one here), so this is always the
+// product-level photo — same source the grid card already uses.
+function toggleLineImgPreview(event, imgUrl) {
+    event.stopPropagation();
+    const existing = document.getElementById('lineImgPreview');
+    if (existing) { existing.remove(); document.removeEventListener('click', closeLineImgPreviewOnOutsideClick); return; }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.id = 'lineImgPreview';
+    popup.className = 'img-preview-popup';
+    popup.style.top = `${Math.min(rect.bottom + window.scrollY + 6, window.innerHeight - 150)}px`;
+    popup.style.left = `${Math.max(8, Math.min(rect.left + window.scrollX, window.innerWidth - 150))}px`;
+    popup.innerHTML = `<img src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">`;
+    document.body.appendChild(popup);
+    setTimeout(() => document.addEventListener('click', closeLineImgPreviewOnOutsideClick), 0);
+}
+function closeLineImgPreviewOnOutsideClick() {
+    document.getElementById('lineImgPreview')?.remove();
+    document.removeEventListener('click', closeLineImgPreviewOnOutsideClick);
+}
+
+function isPageActive(name) {
+    const el = document.getElementById('page-' + name);
+    return !!el && el.classList.contains('active');
+}
+
+/* ============================================================
+   TRENDS — admin/manager only, same gate as Pardavimai/Tiekėjai.
+   No charting library (none exists in either app — the desktop
+   Dashboard's own charts are hand-rolled inline SVG; same approach
+   here, just narrower for a phone). Every data source already
+   exists and is already correctly RLS-scoped:
+     - rpc_get_sales_by_variant (same RPC/store rule as Pardavimai —
+       admin sees every store, a manager only their own)
+     - rpc_get_replenishment_candidates (verbatim reuse of the exact
+       RPC the desktop Dashboard's own restock card calls)
+     - customer_notes (verbatim reuse of the desktop Dashboard's own
+       "Customer Notes" read + mark-reviewed flow)
+   Zero new migrations, zero new backend work.
+   ============================================================ */
+let trendsPeriodDays = 7;
+
+function openTrendsPage() {
+    loadTrends();
+}
+
+function setTrendsPeriod(days) {
+    trendsPeriodDays = days;
+    document.querySelectorAll('.period-tab').forEach(el => el.classList.toggle('active', Number(el.dataset.period) === days));
+    loadTrends();
+}
+
+async function loadTrends() {
+    const body = document.getElementById('trendsBody');
+    body.innerHTML = `<div class="spinner-block"><i class="fas fa-spinner fa-spin"></i> Kraunama...</div>`;
+
+    const dayEnd = new Date();
+    const dayStart = new Date();
+    dayStart.setDate(dayStart.getDate() - (trendsPeriodDays - 1));
+    dayStart.setHours(0, 0, 0, 0);
+    const storeIds = isAdminRole() ? STORES.map(s => s.id) : [DEVICE_LOCATION_ID];
+
+    const [lineResults, restockRes, notesRes] = await Promise.all([
+        Promise.all(storeIds.map(id => sb.rpc('rpc_get_sales_by_variant', { p_location_id: id, p_date_from: dayStart.toISOString(), p_date_to: dayEnd.toISOString() }))),
+        sb.rpc('rpc_get_replenishment_candidates', { p_location_id: isAdminRole() ? null : DEVICE_LOCATION_ID }),
+        sb.from('customer_notes').select('*').eq('status', 'OPEN').order('created_at', { ascending: false }).limit(20)
+    ]);
+
+    const lines = [];
+    lineResults.forEach(r => { if (!r.error && r.data) lines.push(...r.data); });
+    // Only real, completed sales feed the insight cards below — a voided
+    // or refunded line never happened as far as "what's selling" goes,
+    // same filter the desktop Daily Sales view uses for its own itemsSold
+    // count.
+    const soldLines = lines.filter(l => l.status === 'COMPLETED' && !l.is_refunded);
+
+    renderTrends(soldLines, restockRes.data || [], notesRes.data || []);
+}
+
+function renderTrends(soldLines, restock, notes) {
+    document.getElementById('trendsBody').innerHTML =
+        trendsTopSellersHtml(soldLines) +
+        trendsSizeMixHtml(soldLines) +
+        trendsWeekdayHtml(soldLines) +
+        trendsRestockHtml(restock) +
+        trendsFeedbackHtml(notes);
+}
+
+function trendsEmptyCard(title, msg) {
+    return `<div class="trend-card"><h3>${escapeHtml(title)}</h3><div class="muted-sm">${escapeHtml(msg)}</div></div>`;
+}
+
+function trendsTopSellersHtml(lines) {
+    const byProduct = new Map();
+    for (const l of lines) {
+        const cur = byProduct.get(l.product_id) || { name: l.product_name, revenue: 0 };
+        cur.revenue += Number(l.total_price || 0);
+        byProduct.set(l.product_id, cur);
+    }
+    const top = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 7);
+    if (!top.length) return trendsEmptyCard('Perkamiausios prekės', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const maxRev = Math.max(...top.map(t => t.revenue), 0.01);
+    const rows = top.map(t => `<div class="rank-row">
+        <div class="rank-label">${escapeHtml(t.name)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.max(4, t.revenue / maxRev * 100)}%;"></div></div>
+        <div class="rank-value">€${t.revenue.toFixed(0)}</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Perkamiausios prekės</h3>${rows}</div>`;
+}
+
+function trendsSizeMixHtml(lines) {
+    const bySize = new Map();
+    for (const l of lines) bySize.set(l.size || '—', (bySize.get(l.size || '—') || 0) + Number(l.quantity || 0));
+    const sizes = [...bySize.entries()].sort((a, b) => compareSizes(a[0], b[0]));
+    if (!sizes.length) return trendsEmptyCard('Dydžių pasiskirstymas', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const maxQty = Math.max(...sizes.map(s => s[1]), 1);
+    const rows = sizes.map(([size, qty]) => `<div class="rank-row">
+        <div class="rank-label" style="width:20%;">${escapeHtml(size)}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.max(4, qty / maxQty * 100)}%;"></div></div>
+        <div class="rank-value">${qty} vnt.</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Dydžių pasiskirstymas</h3>${rows}</div>`;
+}
+
+const WEEKDAY_LABELS_LT = ['Sek', 'Pir', 'Ant', 'Tre', 'Ket', 'Pen', 'Šeš'];
+function trendsWeekdayHtml(lines) {
+    const byDow = new Array(7).fill(0);
+    for (const l of lines) byDow[new Date(l.created_at).getDay()] += Number(l.total_price || 0);
+    if (!byDow.some(v => v > 0)) return trendsEmptyCard('Pardavimai pagal savaitės dieną', 'Šiuo laikotarpiu pardavimų nebuvo.');
+    const max = Math.max(...byDow, 0.01);
+    const w = 320, h = 116, slot = w / 7, barW = slot - 10;
+    const bars = byDow.map((v, i) => {
+        const bh = Math.max(2, (v / max) * (h - 26));
+        const x = i * slot + 5;
+        const y = h - 22 - bh;
+        return `<rect class="weekday-bar" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4"></rect>
+                <text class="weekday-label" x="${x + barW / 2}" y="${h - 6}" text-anchor="middle">${WEEKDAY_LABELS_LT[i]}</text>`;
+    }).join('');
+    return `<div class="trend-card"><h3>Pardavimai pagal savaitės dieną</h3><svg class="weekday-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg></div>`;
+}
+
+function trendsRestockHtml(rows) {
+    const top = (rows || []).filter(r => Number(r.suggested_reorder_qty || 0) > 0)
+        .sort((a, b) => Number(b.suggested_reorder_qty || 0) - Number(a.suggested_reorder_qty || 0))
+        .slice(0, 8);
+    if (!top.length) return trendsEmptyCard('Verta papildyti', 'Šiuo metu papildymo rekomendacijų nėra.');
+    const rowsHtml = top.map(r => `<div class="restock-row">
+        <div>
+            <div class="restock-name">${escapeHtml(r.product_name)} — ${escapeHtml(r.color_name || '')} / ${escapeHtml(r.size || '')}</div>
+            <div class="restock-sub">${escapeHtml(r.location_name || '')} · liko ${r.on_hand_total ?? r.current_quantity ?? 0} vnt.</div>
+        </div>
+        <div class="restock-qty">+${r.suggested_reorder_qty}</div>
+    </div>`).join('');
+    return `<div class="trend-card"><h3>Verta papildyti</h3>${rowsHtml}</div>`;
+}
+
+const NOTE_TYPE_LABELS = { PRODUCT_IDEA: 'Idėja', FEEDBACK: 'Atsiliepimas', OTHER: 'Kita' };
+function trendsFeedbackHtml(notes) {
+    if (!notes.length) return trendsEmptyCard('Klientų atsiliepimai', 'Neperžiūrėtų atsiliepimų nėra.');
+    const rows = notes.map(n => {
+        const store = STORES.find(s => s.id === n.location_id);
+        return `<div class="note-row">
+            <div class="note-top">
+                ${n.note_type ? `<span class="note-type-badge">${escapeHtml(NOTE_TYPE_LABELS[n.note_type] || n.note_type)}</span>` : ''}
+                <span class="note-time">${new Date(n.created_at).toLocaleString('lt-LT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}${store ? ' · ' + escapeHtml(store.name) : ''}</span>
+            </div>
+            <div class="note-body">${escapeHtml(n.body)}</div>
+            <button class="btn btn-ghost-sm" onclick="markNoteReviewedMobile(${n.id})"><i class="fas fa-check"></i> Peržiūrėta</button>
+        </div>`;
+    }).join('');
+    return `<div class="trend-card"><h3>Klientų atsiliepimai</h3>${rows}</div>`;
+}
+
+async function markNoteReviewedMobile(id) {
+    const { error } = await sb.from('customer_notes').update({ status: 'REVIEWED', reviewed_by: PROFILE.id, reviewed_at: new Date().toISOString() }).eq('id', id);
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Pažymėta kaip peržiūrėta.', 'success');
+    loadTrends();
 }
 
 /* ============================================================
@@ -1600,6 +2076,13 @@ function subscribeRealtime() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, () => {
             queueInventoryReload();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            // Pardavimai only cares about today's own screen — a change
+            // while looking at a past date, or while on another page,
+            // isn't worth a silent refetch (same guard the desktop Daily
+            // Sales view uses on its own 'orders' subscription).
+            if (isPageActive('sales') && salesCurrentDate === todayDateStrLocal()) loadSalesDay(salesCurrentDate, true);
         })
         .subscribe((status) => {
             // Self-healing: a phone that gets backgrounded, locked, loses
@@ -1659,16 +2142,16 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // Sends the person straight to the requested screen after tapping a push
-// notification — currently only "transfers" (the requests sheet), since
+// notification — currently only "transfers" (the requests page), since
 // that's the only thing this app ever pushes about. Safe to call whether
 // or not a jump is actually pending; a normal app open just no-ops here.
 function applyPendingPushOpen() {
     if (!PENDING_PUSH_OPEN || !PROFILE) return;
     const target = PENDING_PUSH_OPEN;
     PENDING_PUSH_OPEN = null;
-    if (target === 'transfers') openRequestsSheet();
+    if (target === 'transfers') switchPage('requests');
     // Strip the param so a manual refresh/reshare of this URL doesn't
-    // keep reopening the sheet — only an actual notification tap does this.
+    // keep reopening the page — only an actual notification tap does this.
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
 }
 
@@ -1808,89 +2291,6 @@ function attachPullToRefresh(scrollEl, onRefresh) {
 
 attachPullToRefresh(document.getElementById('gridScroll'), async () => { await loadCatalog(); toast('Katalogas atnaujintas.', 'success'); });
 attachPullToRefresh(document.getElementById('reqBody'), async () => { await loadRequests(); toast('Užklausos atnaujintos.', 'success'); });
-
-/* ============================================================
-   STORAGE SHEET (mobile) — open to every role, read-only.
-   ============================================================
-   Deliberately the read-only counterpart to the desktop app's Storage
-   tab: same candidate scope (any SKU currently holding storage stock at
-   EITHER store), both stores' numbers shown side by side, but no move
-   buttons at all — "no adjustment needed, just stocks." Reuses the same
-   `products` catalog loadCatalog() already fetched (which already
-   carries storage_quantity per store, see stockByLocation[locId].storage
-   above) — no separate fetch, no separate RPC.
-   ============================================================ */
-function openStorageSheet() {
-    document.getElementById('storageScrim').classList.add('open');
-    document.getElementById('storageSheet').classList.add('open');
-    document.getElementById('storageSearchInput').value = '';
-    renderStorageListItems();
-}
-
-function closeStorageSheet() {
-    document.getElementById('storageScrim').classList.remove('open');
-    document.getElementById('storageSheet').classList.remove('open');
-}
-
-function storageSheetCandidates() {
-    const rows = [];
-    for (const p of products) {
-        for (const v of p.variants) {
-            const anyStorage = Object.values(v.stockByLocation || {}).some(loc => (loc.storage || 0) > 0);
-            if (!anyStorage) continue;
-            rows.push({ product: p, variant: v });
-        }
-    }
-    return rows;
-}
-
-// Same field coverage as the desktop app's own (now-aligned) Storage tab
-// search: name, barcode, SKU, color, category, and supplier name —
-// deliberately no size, same reasoning as the main catalog search
-// (productMatchesToken) and its desktop counterpart both use.
-function storageSheetMatchesToken(row, token) {
-    const p = row.product, v = row.variant;
-    return p.name.toLowerCase().includes(token) ||
-        (p.base_barcode || '').toLowerCase().includes(token) ||
-        (v.sku || '').toLowerCase().includes(token) ||
-        v.colorName.toLowerCase().includes(token) ||
-        (p.category || '').toLowerCase().includes(token) ||
-        productHasSupplierMatch(p, token);
-}
-
-function searchStorageSheet(rawQuery) {
-    const candidates = storageSheetCandidates();
-    const q = (rawQuery || '').trim().toLowerCase();
-    if (!q) return candidates;
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return candidates.filter(row => tokens.every(tok => storageSheetMatchesToken(row, tok)));
-}
-
-function renderStorageListItems() {
-    const box = document.getElementById('storageSearchInput');
-    const list = searchStorageSheet(box ? box.value : '');
-    const cont = document.getElementById('storageListItems');
-    if (!cont) return;
-    cont.innerHTML = list.map(row => {
-        const p = row.product, v = row.variant;
-        // Only stores that actually have some — a SKU stored at one
-        // location but not the other shouldn't show a "0" pill for the
-        // other, same "don't show non-value info" rule the product sheet's
-        // own storage pills already follow.
-        const pills = STORES.map(s => {
-            const sq = ((v.stockByLocation || {})[s.id] || {}).storage || 0;
-            if (sq <= 0) return '';
-            return `<span class="store-stock-pill storage"><span class="loc">${escapeHtml(s.name)}</span><span class="qty">${sq}</span></span>`;
-        }).filter(Boolean).join('');
-        return `<div class="sup-list-item" style="cursor:default;">
-            <div class="sup-list-item-main">
-                <div class="sup-list-item-name">${escapeHtml(p.name)} — ${escapeHtml(v.colorName)} / ${escapeHtml(v.size)}</div>
-                <div class="sup-list-item-sub">${escapeHtml(v.sku || '')}</div>
-                <div class="store-stock-row" style="margin-top:6px;">${pills}</div>
-            </div>
-        </div>`;
-    }).join('') || `<div class="empty-state" style="padding:30px 10px;"><i class="fas fa-box-archive"></i><div>${storageSheetCandidates().length ? 'Pagal paiešką nieko nerasta.' : 'Šiuo metu sandėlyje nieko nėra.'}</div></div>`;
-}
 
 /* ============================================================
    MANAGE CATALOGUE (mobile) — admin/manager only, same gate as
