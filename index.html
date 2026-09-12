@@ -279,6 +279,10 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .sl-money { text-align: right; flex-shrink: 0; }
 .sl-amount { font-weight: 700; font-size: 0.83rem; }
 .sl-discount-badge { font-size: 0.6rem; font-weight: 700; color: #fff; background: var(--danger-color); border-radius: 6px; padding: 1px 5px; margin-left: 3px; }
+/* Non-intrusive "sold out of stock" flag, same source/meaning as SlebuteApp's
+   Daily Sales one (rpc_process_pos_sale's oversold override) — tap shows the
+   same automatic note a manager sees in Customer Notes. */
+.sl-oos-flag { color: var(--danger-color); margin-left: 4px; font-size: 0.85em; }
 
 .img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
 .img-preview-popup img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; display: block; background: var(--card-bg-raised); }
@@ -1909,7 +1913,7 @@ function renderSalesLines() {
         return `<div class="sale-line${voided ? ' voided' : ''}" ${imgUrl ? `onclick="toggleLineImgPreview(event, '${escapeHtml(imgUrl)}')"` : ''}>
             ${imgUrl ? `<img class="sl-thumb" src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">` : `<div class="sl-thumb"></div>`}
             <div class="sl-main">
-                <div class="sl-name">${escapeHtml(l.product_name)} — ${escapeHtml(l.color_name)} / ${escapeHtml(l.size)}</div>
+                <div class="sl-name">${escapeHtml(l.product_name)} — ${escapeHtml(l.color_name)} / ${escapeHtml(l.size)}${l.oversold_note_id ? `<i class="fas fa-triangle-exclamation sl-oos-flag" title="${escapeHtml(l.oversold_note_body || '')}" onclick="showOversoldNoteMobile(event, ${l.order_item_id})"></i>` : ''}</div>
                 <div class="sl-meta">${time} · ${l.quantity} vnt.</div>
                 <div class="sl-stock">${stockBadges}</div>
             </div>
@@ -1918,6 +1922,16 @@ function renderSalesLines() {
             </div>
         </div>`;
     }).join('');
+}
+
+// Tap on the out-of-stock flag icon (see renderSalesLines()) — same
+// automatic note a manager sees in Customer Notes, just surfaced here too so
+// a cashier checking Pardavimai on mobile sees it without extra taps.
+function showOversoldNoteMobile(event, orderItemId) {
+    event.stopPropagation();
+    const line = salesLineCache.find(l => l.order_item_id === orderItemId);
+    if (!line || !line.oversold_note_body) return;
+    toast(line.oversold_note_body, 'warn');
 }
 
 // Small anchored image preview on tap — same pattern as
