@@ -414,12 +414,18 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="login-card">
         <div class="login-logo">Šlebutė <span>Sandėlis</span></div>
         <div class="login-sub">Prisijunkite prie savo POS paskyros</div>
-        <!-- Shown instead of the form while a device with fingerprint sign-in
-             enabled auto-attempts it on load (checkSession() toggles which of
-             these two blocks is visible — see AUTH section). -->
+        <!-- Shown instead of the form on a device with fingerprint sign-in
+             enabled (checkSession() toggles which of these two blocks is
+             visible — see AUTH section). Tapping the icon is required, not
+             optional: navigator.credentials.get() has to run inside a real
+             user gesture or mobile browsers silently refuse to show the
+             native fingerprint sheet at all — an auto-invoked call on page
+             load never surfaces anything (bug found 2026-09-13). -->
         <div id="bioStatus" class="hidden" style="padding: 24px 0;">
-            <i class="fas fa-fingerprint fa-2x" style="color: var(--accent-color);"></i>
-            <div id="bioStatusText" style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">Prisijungiama pirštu...</div>
+            <button type="button" id="bioTriggerBtn" onclick="attemptBiometricLogin()" style="background:none; border:none; cursor:pointer; padding:0;" aria-label="Prisijungti pirštu">
+                <i class="fas fa-fingerprint fa-2x" style="color: var(--accent-color);"></i>
+            </button>
+            <div id="bioStatusText" style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">Palieskite, kad prisijungtumėte pirštu</div>
             <a href="#" id="bioFallbackLink" class="hidden" style="display: inline-block; margin-top: 16px; font-size: 0.8rem; color: var(--accent-color);" onclick="event.preventDefault(); showPasswordForm();">Prisijungti su vartotojo vardu ir slaptažodžiu</a>
         </div>
         <form id="loginForm" onsubmit="event.preventDefault(); login(); return false;">
@@ -639,7 +645,6 @@ sb.auth.onAuthStateChange((_event, session) => {
 const BIOMETRIC_CRED_ID_KEY = 'slebute_biometric_cred_id';
 const BIOMETRIC_REFRESH_KEY = 'slebute_biometric_refresh_token';
 const BIOMETRIC_DISMISSED_KEY = 'slebute_biometric_dismissed';
-const BIOMETRIC_MAX_ATTEMPTS = 3;
 
 function biometricSupported() {
     return !!(window.PublicKeyCredential && navigator.credentials);
@@ -735,7 +740,9 @@ async function checkSession() {
     if (biometricSupported() && localStorage.getItem(BIOMETRIC_CRED_ID_KEY)) {
         document.getElementById('loginForm').classList.add('hidden');
         document.getElementById('bioStatus').classList.remove('hidden');
-        attemptBiometricLogin();
+        // No auto-attempt here (bug fixed 2026-09-13) — navigator.credentials.get()
+        // has to run inside bioTriggerBtn's own click handler or mobile browsers
+        // never show the native fingerprint sheet at all. See attemptBiometricLogin().
     }
 }
 
@@ -744,16 +751,18 @@ function showPasswordForm() {
     document.getElementById('loginForm').classList.remove('hidden');
 }
 
-// Auto-triggers the OS fingerprint prompt with no button tap — retries up
-// to BIOMETRIC_MAX_ATTEMPTS times (a smudged/wet finger is common in a
-// warehouse) before falling back to the small "use password" link. A short
-// pause between retries avoids the native sheet slamming straight back
-// open after a cancel/fail.
-async function attemptBiometricLogin(attempt) {
-    attempt = attempt || 1;
+// Only ever called from bioTriggerBtn's onclick — navigator.credentials.get()
+// silently shows nothing without a real user gesture behind it, so this must
+// stay tap-triggered, not auto-invoked on load. A failed/cancelled attempt
+// (smudged finger, wrong finger, timeout) just re-arms the same button for
+// another tap rather than auto-retrying — a fresh tap is a fresh gesture,
+// guaranteed to work the same way every time; a timer-deferred retry isn't.
+async function attemptBiometricLogin() {
     const credIdB64 = localStorage.getItem(BIOMETRIC_CRED_ID_KEY);
     const refreshToken = localStorage.getItem(BIOMETRIC_REFRESH_KEY);
     if (!credIdB64 || !refreshToken) { showPasswordForm(); return; }
+    document.getElementById('bioStatusText').innerText = 'Prisijungiama pirštu...';
+    document.getElementById('bioFallbackLink').classList.add('hidden');
     try {
         const assertion = await navigator.credentials.get({
             publicKey: {
@@ -770,12 +779,8 @@ async function attemptBiometricLogin(attempt) {
         if (!ok) throw new Error('profile load failed');
         showApp();
     } catch (e) {
-        if (attempt < BIOMETRIC_MAX_ATTEMPTS) {
-            setTimeout(() => attemptBiometricLogin(attempt + 1), 400);
-        } else {
-            document.getElementById('bioStatusText').innerText = 'Nepavyko atpažinti piršto.';
-            document.getElementById('bioFallbackLink').classList.remove('hidden');
-        }
+        document.getElementById('bioStatusText').innerText = 'Nepavyko atpažinti piršto. Palieskite, kad bandytumėte dar kartą.';
+        document.getElementById('bioFallbackLink').classList.remove('hidden');
     }
 }
 
