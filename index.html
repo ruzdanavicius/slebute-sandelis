@@ -414,26 +414,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="login-card">
         <div class="login-logo">Šlebutė <span>Sandėlis</span></div>
         <div class="login-sub">Prisijunkite prie savo POS paskyros</div>
-        <!-- Shown instead of the form on a device with fingerprint sign-in
-             enabled (checkSession() toggles which of these two blocks is
-             visible — see AUTH section). Tapping the icon is required, not
-             optional: navigator.credentials.get() has to run inside a real
-             user gesture or mobile browsers silently refuse to show the
-             native fingerprint sheet at all — an auto-invoked call on page
-             load never surfaces anything (bug found 2026-09-13). The
-             password-fallback link stays visible from the start, not just
-             after a failed attempt (bug found 2026-09-13, part 2) — a
-             device where the fingerprint step never resolves (hangs,
-             errors before the catch fires, or the tap goes unnoticed
-             because the icon doesn't read as an obvious button) must never
-             leave someone with zero visible way to log in at all. -->
-        <div id="bioStatus" class="hidden" style="padding: 24px 0;">
-            <button type="button" id="bioTriggerBtn" onclick="attemptBiometricLogin()" style="background:none; border:none; cursor:pointer; padding:0;" aria-label="Prisijungti pirštu">
-                <i class="fas fa-fingerprint fa-2x" style="color: var(--accent-color);"></i>
-            </button>
-            <div id="bioStatusText" style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">Palieskite, kad prisijungtumėte pirštu</div>
-            <a href="#" id="bioFallbackLink" style="display: inline-block; margin-top: 16px; font-size: 0.8rem; color: var(--accent-color);" onclick="event.preventDefault(); showPasswordForm();">Prisijungti su vartotojo vardu ir slaptažodžiu</a>
-        </div>
         <form id="loginForm" onsubmit="event.preventDefault(); login(); return false;">
             <input type="email" id="email" class="login-input" placeholder="El. paštas" autocomplete="username" name="email">
             <input type="password" id="password" class="login-input" placeholder="Slaptažodis" autocomplete="current-password" name="password">
@@ -462,13 +442,6 @@ select.form-input { appearance: none; -webkit-appearance: none; }
         <div style="flex:1; font-size:0.78rem; color:var(--text-primary);">Gauti pranešimus šiame telefone, kai atvyksta siunta?</div>
         <button class="btn btn-primary btn-sm" onclick="enablePushNotifications()">Įjungti</button>
         <button class="icon-btn-sm" onclick="dismissPushBanner()" title="Uždaryti"><i class="fas fa-xmark"></i></button>
-    </div>
-
-    <div id="bioBanner" class="hidden" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--accent-tint); border-bottom:var(--glass-border);">
-        <i class="fas fa-fingerprint" style="color:var(--accent-color); flex-shrink:0;"></i>
-        <div style="flex:1; font-size:0.78rem; color:var(--text-primary);">Kitą kartą prisijungti pirštu, be slaptažodžio?</div>
-        <button class="btn btn-primary btn-sm" onclick="enableBiometricLogin()">Įjungti</button>
-        <button class="icon-btn-sm" onclick="dismissBiometricBanner()" title="Uždaryti"><i class="fas fa-xmark"></i></button>
     </div>
 
     <div id="pageHost">
@@ -633,40 +606,7 @@ document.getElementById('brandLogoImg').src = document.querySelector('link[rel="
 // token, which only APPEARED to fix it.
 sb.auth.onAuthStateChange((_event, session) => {
     if (session) sb.realtime.setAuth(session.access_token);
-    // Supabase rotates the refresh token on every use, so the copy cached
-    // for fingerprint sign-in (see AUTH section) goes stale unless kept in
-    // sync here — this fires on every refresh, not just at login.
-    if (session && localStorage.getItem(BIOMETRIC_CRED_ID_KEY)) {
-        try { localStorage.setItem(BIOMETRIC_REFRESH_KEY, session.refresh_token); } catch (e) {}
-    }
 });
-
-// Fingerprint sign-in (opt-in, per device): a WebAuthn platform credential
-// gates re-use of a cached Supabase refresh token, so returning to the
-// login screen can skip typing the password. This is a local convenience
-// gate, not a new security boundary — RLS is still what actually protects
-// data (see slebute-ops/CLAUDE.md §5); WebAuthn here is unverified
-// client-side (no server round-trip), same trust level as the session
-// token Supabase already persists in localStorage today.
-const BIOMETRIC_CRED_ID_KEY = 'slebute_biometric_cred_id';
-const BIOMETRIC_REFRESH_KEY = 'slebute_biometric_refresh_token';
-const BIOMETRIC_DISMISSED_KEY = 'slebute_biometric_dismissed';
-
-function biometricSupported() {
-    return !!(window.PublicKeyCredential && navigator.credentials);
-}
-function bioRandomChallenge() {
-    return crypto.getRandomValues(new Uint8Array(32));
-}
-function bioBufToB64(buf) {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
-function bioB64ToBuf(b64) {
-    const bin = atob(b64);
-    const arr = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    return arr.buffer;
-}
 
 let PROFILE = null;
 let DEVICE_LOCATION_ID = null;
@@ -743,57 +683,6 @@ async function checkSession() {
         if (ok) { showApp(); return; }
     }
     document.getElementById('loginOverlay').style.display = 'flex';
-    if (biometricSupported() && localStorage.getItem(BIOMETRIC_CRED_ID_KEY)) {
-        document.getElementById('loginForm').classList.add('hidden');
-        document.getElementById('bioStatus').classList.remove('hidden');
-        // No auto-attempt here (bug fixed 2026-09-13) — navigator.credentials.get()
-        // has to run inside bioTriggerBtn's own click handler or mobile browsers
-        // never show the native fingerprint sheet at all. See attemptBiometricLogin().
-    }
-}
-
-function showPasswordForm() {
-    document.getElementById('bioStatus').classList.add('hidden');
-    document.getElementById('loginForm').classList.remove('hidden');
-}
-
-// Only ever called from bioTriggerBtn's onclick — navigator.credentials.get()
-// silently shows nothing without a real user gesture behind it, so this must
-// stay tap-triggered, not auto-invoked on load. A failed/cancelled attempt
-// (smudged finger, wrong finger, timeout) just re-arms the same button for
-// another tap rather than auto-retrying — a fresh tap is a fresh gesture,
-// guaranteed to work the same way every time; a timer-deferred retry isn't.
-async function attemptBiometricLogin() {
-    const credIdB64 = localStorage.getItem(BIOMETRIC_CRED_ID_KEY);
-    const refreshToken = localStorage.getItem(BIOMETRIC_REFRESH_KEY);
-    if (!credIdB64 || !refreshToken) { showPasswordForm(); return; }
-    document.getElementById('bioStatusText').innerText = 'Prisijungiama pirštu...';
-    try {
-        const assertion = await navigator.credentials.get({
-            publicKey: {
-                challenge: bioRandomChallenge(),
-                // transports: ['internal'] is what actually tells the OS this
-                // credential lives on the built-in sensor, not a roaming/USB
-                // key — enableBiometricLogin() only ever creates platform
-                // credentials, so this is always correct. Without it, some
-                // Android/Chrome combinations never route the request to the
-                // fingerprint sensor at all (create() worked because it had
-                // its own authenticatorAttachment:'platform' hint; get() had
-                // no equivalent hint here — bug found 2026-09-13, part 3).
-                allowCredentials: [{ id: bioB64ToBuf(credIdB64), type: 'public-key', transports: ['internal'] }],
-                userVerification: 'required',
-                timeout: 30000
-            }
-        });
-        if (!assertion) throw new Error('no assertion');
-        const { data, error } = await sb.auth.refreshSession({ refresh_token: refreshToken });
-        if (error || !data.session) throw error || new Error('refresh failed');
-        const ok = await loadProfile(data.session.user.id);
-        if (!ok) throw new Error('profile load failed');
-        showApp();
-    } catch (e) {
-        document.getElementById('bioStatusText').innerText = 'Nepavyko atpažinti piršto. Palieskite, kad bandytumėte dar kartą.';
-    }
 }
 
 async function loadProfile(userId) {
@@ -823,64 +712,14 @@ async function login() {
     }
     const ok = await loadProfile(data.user.id);
     btn.disabled = false; btn.innerText = 'Prisijungti';
-    if (ok) { showApp(); maybeShowBiometricBanner(); } else await sb.auth.signOut();
+    if (ok) showApp(); else await sb.auth.signOut();
 }
 
 async function logout() {
     if (realtimeReconnectTimer) { clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; }
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    // scope:'local' (not the default 'global') — a global sign-out revokes
-    // the refresh token server-side, which would also kill the cached copy
-    // fingerprint sign-in relies on to get back in without a password.
-    // Trade-off: logout no longer ends the session on Supabase's side or on
-    // other devices signed into this account, only on this device/browser.
-    await sb.auth.signOut({ scope: 'local' });
+    await sb.auth.signOut();
     window.location.reload();
-}
-
-// Offered once, right after a password login (the only moment a fresh
-// refresh token is on hand to cache). Same non-nagging pattern as
-// maybeShowPushBanner(): opt-in, dismiss is remembered, never re-shown.
-function maybeShowBiometricBanner() {
-    if (!biometricSupported()) return;
-    if (localStorage.getItem(BIOMETRIC_CRED_ID_KEY)) return; // already enabled on this device
-    if (localStorage.getItem(BIOMETRIC_DISMISSED_KEY)) return;
-    document.getElementById('bioBanner').classList.remove('hidden');
-}
-
-function dismissBiometricBanner() {
-    document.getElementById('bioBanner').classList.add('hidden');
-    try { localStorage.setItem(BIOMETRIC_DISMISSED_KEY, '1'); } catch (e) {}
-}
-
-async function enableBiometricLogin() {
-    document.getElementById('bioBanner').classList.add('hidden');
-    try {
-        const { data: sessionData } = await sb.auth.getSession();
-        const session = sessionData && sessionData.session;
-        if (!session) throw new Error('no session');
-        const credential = await navigator.credentials.create({
-            publicKey: {
-                challenge: bioRandomChallenge(),
-                rp: { name: 'Slebutė Sandėlis' },
-                user: {
-                    id: new TextEncoder().encode(session.user.id),
-                    name: session.user.email || PROFILE.full_name,
-                    displayName: PROFILE.full_name
-                },
-                pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-                authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-                timeout: 60000
-            }
-        });
-        if (!credential) throw new Error('no credential');
-        localStorage.setItem(BIOMETRIC_CRED_ID_KEY, bioBufToB64(credential.rawId));
-        localStorage.setItem(BIOMETRIC_REFRESH_KEY, session.refresh_token);
-        toast('Prisijungimas pirštu įjungtas.', 'success');
-    } catch (e) {
-        try { localStorage.setItem(BIOMETRIC_DISMISSED_KEY, '1'); } catch (e2) {}
-        toast('Nepavyko įjungti prisijungimo pirštu.', 'warn');
-    }
 }
 
 async function showApp() {
