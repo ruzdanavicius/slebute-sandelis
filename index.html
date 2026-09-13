@@ -420,13 +420,19 @@ select.form-input { appearance: none; -webkit-appearance: none; }
              optional: navigator.credentials.get() has to run inside a real
              user gesture or mobile browsers silently refuse to show the
              native fingerprint sheet at all — an auto-invoked call on page
-             load never surfaces anything (bug found 2026-09-13). -->
+             load never surfaces anything (bug found 2026-09-13). The
+             password-fallback link stays visible from the start, not just
+             after a failed attempt (bug found 2026-09-13, part 2) — a
+             device where the fingerprint step never resolves (hangs,
+             errors before the catch fires, or the tap goes unnoticed
+             because the icon doesn't read as an obvious button) must never
+             leave someone with zero visible way to log in at all. -->
         <div id="bioStatus" class="hidden" style="padding: 24px 0;">
             <button type="button" id="bioTriggerBtn" onclick="attemptBiometricLogin()" style="background:none; border:none; cursor:pointer; padding:0;" aria-label="Prisijungti pirštu">
                 <i class="fas fa-fingerprint fa-2x" style="color: var(--accent-color);"></i>
             </button>
             <div id="bioStatusText" style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">Palieskite, kad prisijungtumėte pirštu</div>
-            <a href="#" id="bioFallbackLink" class="hidden" style="display: inline-block; margin-top: 16px; font-size: 0.8rem; color: var(--accent-color);" onclick="event.preventDefault(); showPasswordForm();">Prisijungti su vartotojo vardu ir slaptažodžiu</a>
+            <a href="#" id="bioFallbackLink" style="display: inline-block; margin-top: 16px; font-size: 0.8rem; color: var(--accent-color);" onclick="event.preventDefault(); showPasswordForm();">Prisijungti su vartotojo vardu ir slaptažodžiu</a>
         </div>
         <form id="loginForm" onsubmit="event.preventDefault(); login(); return false;">
             <input type="email" id="email" class="login-input" placeholder="El. paštas" autocomplete="username" name="email">
@@ -762,7 +768,6 @@ async function attemptBiometricLogin() {
     const refreshToken = localStorage.getItem(BIOMETRIC_REFRESH_KEY);
     if (!credIdB64 || !refreshToken) { showPasswordForm(); return; }
     document.getElementById('bioStatusText').innerText = 'Prisijungiama pirštu...';
-    document.getElementById('bioFallbackLink').classList.add('hidden');
     try {
         const assertion = await navigator.credentials.get({
             publicKey: {
@@ -780,7 +785,6 @@ async function attemptBiometricLogin() {
         showApp();
     } catch (e) {
         document.getElementById('bioStatusText').innerText = 'Nepavyko atpažinti piršto. Palieskite, kad bandytumėte dar kartą.';
-        document.getElementById('bioFallbackLink').classList.remove('hidden');
     }
 }
 
