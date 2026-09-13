@@ -772,15 +772,7 @@ async function attemptBiometricLogin() {
         const assertion = await navigator.credentials.get({
             publicKey: {
                 challenge: bioRandomChallenge(),
-                // transports: ['internal'] is what actually tells the OS this
-                // credential lives on the built-in sensor, not a roaming/USB
-                // key — enableBiometricLogin() only ever creates platform
-                // credentials, so this is always correct. Without it, some
-                // Android/Chrome combinations never route the request to the
-                // fingerprint sensor at all (create() worked because it had
-                // its own authenticatorAttachment:'platform' hint; get() had
-                // no equivalent hint here — bug found 2026-09-13, part 3).
-                allowCredentials: [{ id: bioB64ToBuf(credIdB64), type: 'public-key', transports: ['internal'] }],
+                allowCredentials: [{ id: bioB64ToBuf(credIdB64), type: 'public-key' }],
                 userVerification: 'required',
                 timeout: 30000
             }
