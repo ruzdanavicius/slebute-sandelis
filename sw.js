@@ -20,8 +20,14 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     tag: data.tag || undefined,       // same tag replaces an older not-yet-seen notification instead of stacking
+    renotify: !!data.tag,             // re-alert (vibrate again) when a tagged notification is replaced, not just silently updated
     data: data,                       // carried through to notificationclick — no separate lookup needed
     vibrate: [40, 60, 40],
+    icon: 'icon-192.png',             // app icon, not the generic browser globe — same PNG baked into the manifest
+    badge: 'icon-192.png',            // small status-bar glyph (Android silhouettes it automatically)
+    // Stays on screen until dismissed/tapped instead of the OS auto-clearing it
+    // after a few seconds — the main fix for "gets lost among other notifications".
+    requireInteraction: true,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
