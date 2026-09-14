@@ -138,6 +138,17 @@ img { -webkit-user-drag: none; }
 .pcard:active { transform: scale(0.98); }
 .pcard-img-wrap { width: 100%; aspect-ratio: 1; background: var(--card-bg-raised); position: relative; overflow: hidden; }
 .pcard-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+/* "No photo" placeholder — swapped in for any product image slot with
+   no cover image (or one that fails to load), instead of the browser's
+   broken-image icon. */
+.img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--card-bg-raised); }
+.img-placeholder img { width: 34%; max-width: 56px; height: auto; object-fit: contain; opacity: 0.22; filter: grayscale(1); }
+.img-placeholder.img-placeholder-label { flex-direction: column; gap: 6px; }
+.img-placeholder-text { font-size: 0.62rem; color: var(--text-secondary); text-align: center; padding: 0 6px; }
+/* Same brand-mark fallback for single, persistent <img> elements (like
+   the product sheet header) that get their src set directly in JS
+   rather than re-rendered from a template each time. */
+.img-faded { object-fit: contain !important; opacity: 0.22; filter: grayscale(1); padding: 10px; box-sizing: border-box; background: var(--card-bg-raised); }
 .pcard-sale { position: absolute; top: 8px; left: 8px; background: var(--danger-color); color: #fff; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 5px; }
 .pcard-stock-dot { position: absolute; top: 8px; right: 8px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.9); }
 .dot-ok { background: var(--success-color); }
@@ -548,7 +559,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 <div class="sheet" id="productSheet">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-        <img id="psImg" src="" onerror="this.style.opacity=0.15">
+        <img id="psImg" src="" alt="">
         <div class="sheet-head-text">
             <h2 id="psName">—</h2>
             <div class="muted" id="psMeta">—</div>
@@ -624,6 +635,32 @@ let PENDING_PUSH_OPEN = new URLSearchParams(location.search).get('fromPush');
 
 function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// Same faded-brand-mark "no photo" placeholder as the desktop app's
+// Manage Catalog — used for any product image slot with no cover image
+// (or one that fails to load), instead of the browser's broken-image icon.
+const BRAND_MARK_URL = 'brand-mark.png';
+function placeholderPhotoHTML(cssClass, withLabel) {
+    return `<div class="${cssClass} img-placeholder${withLabel ? ' img-placeholder-label' : ''}"><img src="${BRAND_MARK_URL}" alt="">${withLabel ? `<span class="img-placeholder-text">Nuotraukos nėra</span>` : ''}</div>`;
+}
+function photoTagHTML(url, cssClass, withLabel) {
+    if (!url) return placeholderPhotoHTML(cssClass, withLabel);
+    return `<img src="${escapeHtml(url)}" class="${cssClass}" loading="lazy" onerror="this.outerHTML=placeholderPhotoHTML('${cssClass}', ${!!withLabel})">`;
+}
+// For a persistent, id-referenced <img> (set directly in JS rather than
+// re-rendered from a template each time) — same brand-mark fallback via
+// an .img-faded class swap instead of an element swap.
+function setImgOrPlaceholder(imgEl, url) {
+    imgEl.onerror = null;
+    if (url) {
+        imgEl.classList.remove('img-faded');
+        imgEl.onerror = () => { imgEl.onerror = null; imgEl.src = BRAND_MARK_URL; imgEl.classList.add('img-faded'); };
+        imgEl.src = url;
+    } else {
+        imgEl.src = BRAND_MARK_URL;
+        imgEl.classList.add('img-faded');
+    }
 }
 
 // action (optional): { label, onClick } — inline button, held on screen
@@ -1349,7 +1386,7 @@ function renderGrid(list) {
             : '';
         return `<div class="pcard" onclick="openProductSheet(${p.id})">
             <div class="pcard-img-wrap">
-                <img src="${p.image_url||''}" loading="lazy" onerror="this.style.opacity=0.15">
+                ${photoTagHTML(p.image_url, '', true)}
                 ${sale ? `<span class="pcard-sale">NUOLAIDA</span>` : ''}
                 <span class="pcard-stock-dot ${dot}"></span>
             </div>
@@ -1422,7 +1459,7 @@ function closeStorageSiblingHintOnOutsideClick() {
 function openProductSheet(productId) {
     const p = products.find(x => x.id === productId);
     if (!p) return;
-    document.getElementById('psImg').src = p.image_url || '';
+    setImgOrPlaceholder(document.getElementById('psImg'), p.image_url || '');
     document.getElementById('psName').innerText = p.name;
     const metaBits = [p.category, p.size_range, p.composition].filter(Boolean);
     document.getElementById('psMeta').innerText = metaBits.join(' · ') || '—';
