@@ -621,7 +621,7 @@ sb.auth.onAuthStateChange((_event, session) => {
 
 let PROFILE = null;
 let DEVICE_LOCATION_ID = null;
-let STORES = [];
+let STORES = [];        // real (sellable) stores only -- the virtual "Atvykstančios prekės" store is never a pick-a-store option here
 let products = [];
 let supplierPicker = [];
 let requestsCache = [];
@@ -780,8 +780,8 @@ async function showApp() {
 }
 
 async function loadStores() {
-    const { data, error } = await sb.from('stores').select('id, code, name').order('id');
-    if (!error && data) STORES = data;
+    const { data, error } = await sb.from('stores').select('id, code, name, is_virtual').order('id');
+    if (!error && data) STORES = data.filter(s => !s.is_virtual);
 }
 
 /* ============================================================
@@ -2718,28 +2718,42 @@ async function resolveReorderConflict(decisionId, restockedQty) {
     }
 }
 
-// Every tap is its own immediate, audited stock_adjustments row (ARRIVAL for
-// +, CORRECTION for −) — exactly the trail a manager gets from the desktop
-// Adjust/quick-add actions, just without the modal or the typed number.
-// Optimistic UI update first (feels instant), rolled back only if the RPC
-// itself fails (e.g. would go negative). Buttons lock for the round-trip so
-// a fast double-tap can't fire the same adjustment twice.
+// "−" (CORRECTION) is still its own immediate, audited stock_adjustments
+// row with an optimistic UI update, exactly as before. "+" no longer
+// credits this store directly — it queues through the incoming-goods
+// virtual store (rpc_add_incoming_stock), same as the desktop quick-add,
+// and only actually lands once a shop scans the transfer in on receipt —
+// see SlebuteApp's openReceiveStockModal. So the on-hand number here
+// deliberately does NOT move on a "+" tap; the toast confirms it was
+// queued instead of showing a (currently false) new total. Buttons lock
+// for the round-trip so a fast double-tap can't fire the same action twice.
 async function mcStepExisting(variantId, locationId, delta, btn) {
     const stepper = btn.parentElement;
     const valEl = stepper.querySelector('.qty-stepper-val');
     const current = parseInt(valEl.textContent) || 0;
-    const next = current + delta;
-    if (next < 0) return;
-    valEl.textContent = next;
     const minusBtn = stepper.children[0], plusBtn = stepper.children[2];
     minusBtn.disabled = true; plusBtn.disabled = true;
+
+    if (delta > 0) {
+        const { error } = await sb.rpc('rpc_add_incoming_stock', {
+            p_variant_id: variantId, p_target_location_id: locationId,
+            p_quantity: delta, p_notes: 'Prekių katalogas (mobile)'
+        });
+        minusBtn.disabled = false; plusBtn.disabled = false;
+        if (error) { toast(error.message, 'error'); return; }
+        toast(`+${delta} vnt. įtraukta kaip atvykstanti prekė.`, 'success');
+        return;
+    }
+
+    const next = current + delta;
+    if (next < 0) { minusBtn.disabled = false; plusBtn.disabled = false; return; }
+    valEl.textContent = next;
     const { error } = await sb.rpc('rpc_record_stock_adjustment', {
         p_variant_id: variantId, p_location_id: locationId, p_quantity_change: delta,
-        p_reason: delta > 0 ? 'ARRIVAL' : 'CORRECTION', p_notes: 'Prekių katalogas (mobile)'
+        p_reason: 'CORRECTION', p_notes: 'Prekių katalogas (mobile)'
     });
     minusBtn.disabled = false; plusBtn.disabled = false;
     if (error) { valEl.textContent = current; toast(error.message, 'error'); return; }
-    if (delta > 0) checkReorderConflict(variantId, locationId, delta);
     // Patch the already-loaded catalog in place so totals elsewhere (grid,
     // product sheet) are correct without an extra round-trip — the next
     // realtime/pull-to-refresh reload will reconcile fully regardless.
