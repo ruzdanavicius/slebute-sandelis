@@ -137,7 +137,12 @@ img { -webkit-user-drag: none; }
 .pcard { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: var(--glass-border); box-shadow: 0 2px 10px rgba(36,22,30,0.05); cursor: pointer; }
 .pcard:active { transform: scale(0.98); }
 .pcard-img-wrap { width: 100%; aspect-ratio: 1; background: var(--card-bg-raised); position: relative; overflow: hidden; }
-.pcard-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+/* Contain, not cover: photos are uploaded uncropped (portrait trousers,
+   dresses, or landscape) and the whole garment must stay visible. White
+   letterbox because photos are shot on white; the "no photo" placeholder
+   is a div (`>` keeps this off its nested logo <img>), so it keeps its
+   --card-bg-raised background and logo exactly as before. */
+.pcard-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: contain; background: #fff; }
 /* "No photo" placeholder — swapped in for any product image slot with
    no cover image (or one that fails to load), instead of the browser's
    broken-image icon. */
@@ -296,7 +301,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .sl-oos-flag { color: var(--danger-color); margin-left: 4px; font-size: 0.85em; }
 
 .img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
-.img-preview-popup img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; display: block; background: var(--card-bg-raised); }
+.img-preview-popup img { width: 180px; height: 180px; object-fit: contain; border-radius: 8px; display: block; background: #fff; }
 
 /* ---------------- TRENDS — admin/manager only ---------------- */
 .trends-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
@@ -1984,8 +1989,8 @@ function toggleLineImgPreview(event, imgUrl) {
     const popup = document.createElement('div');
     popup.id = 'lineImgPreview';
     popup.className = 'img-preview-popup';
-    popup.style.top = `${Math.min(rect.bottom + window.scrollY + 6, window.innerHeight - 150)}px`;
-    popup.style.left = `${Math.max(8, Math.min(rect.left + window.scrollX, window.innerWidth - 150))}px`;
+    popup.style.top = `${Math.min(rect.bottom + window.scrollY + 6, window.innerHeight - 200)}px`;
+    popup.style.left = `${Math.max(8, Math.min(rect.left + window.scrollX, window.innerWidth - 200))}px`;
     popup.innerHTML = `<img src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">`;
     document.body.appendChild(popup);
     setTimeout(() => document.addEventListener('click', closeLineImgPreviewOnOutsideClick), 0);
