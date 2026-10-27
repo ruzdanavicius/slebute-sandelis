@@ -646,6 +646,24 @@ function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+// Reads an amount typed by hand: "4.5" and "4,5" both mean 4.5 (the money
+// inputs are type="text", so the browser's locale never rewrites them).
+// Where both separators appear the last one is the decimal ("1.234,50").
+// Returns NaN for anything that isn't a number, like parseFloat('').
+// Same helper as the desktop app's parseMoney().
+function parseMoney(v) {
+    let s = String(v == null ? '' : v).replace(/[\s €]/g, '');
+    if (!s) return NaN;
+    const c = s.lastIndexOf(','), d = s.lastIndexOf('.');
+    if (c > -1 && d > -1) {
+        const dec = c > d ? ',' : '.';
+        s = s.split(dec === ',' ? '.' : ',').join('').replace(dec, '.');
+    } else {
+        s = s.replace(',', '.');
+    }
+    return /^-?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
+}
+
 // Same faded-brand-mark "no photo" placeholder as the desktop app's
 // Manage Catalog — used for any product image slot with no cover image
 // (or one that fails to load), instead of the browser's broken-image icon.
@@ -2671,8 +2689,8 @@ function mcAddSizeRow(blockId, prefill = {}) {
             <button class="icon-btn-sm" onclick="this.closest('.mc-size-row-new').remove()" title="Pašalinti"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="mc-price-row">
-            <div class="form-group"><label class="form-label">Kaina €</label><input type="number" class="form-input mc-price-input" step="0.01" placeholder="0.00" value="${prefill.price || ''}"></div>
-            <div class="form-group"><label class="form-label">Savikaina €</label><input type="number" class="form-input mc-cost-input" step="0.01" placeholder="0.00"></div>
+            <div class="form-group"><label class="form-label">Kaina €</label><input type="text" inputmode="decimal" class="form-input mc-price-input" placeholder="0.00" value="${prefill.price || ''}"></div>
+            <div class="form-group"><label class="form-label">Savikaina €</label><input type="text" inputmode="decimal" class="form-input mc-cost-input" placeholder="0.00"></div>
         </div>
         <input type="text" class="form-input mc-sku-input" placeholder="SKU (automatinis, jei tuščia)" style="margin-bottom:8px;">
         ${locRows}
@@ -2856,8 +2874,8 @@ async function mcSaveProduct() {
         block.querySelectorAll('.mc-size-row-new').forEach(row => {
             const size = row.querySelector('.mc-size-input').value.trim();
             if (!size) return;
-            const price = parseFloat(row.querySelector('.mc-price-input').value) || 0;
-            const cost = parseFloat(row.querySelector('.mc-cost-input').value) || 0;
+            const price = parseMoney(row.querySelector('.mc-price-input').value) || 0;
+            const cost = parseMoney(row.querySelector('.mc-cost-input').value) || 0;
             const sku = row.querySelector('.mc-sku-input').value.trim();
             const stock = {};
             row.querySelectorAll('.qty-stepper-val[data-loc]').forEach(el => { stock[el.dataset.loc] = parseInt(el.textContent) || 0; });
