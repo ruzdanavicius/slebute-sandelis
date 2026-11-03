@@ -2908,6 +2908,139 @@ async function mcSaveProduct() {
     openCatalogProductEdit(mcEditingProductId); // reload so the new sizes now show as live steppers with real stock
 }
 
+/* ============================================================
+   USAGE TRACKING (app_events) — collection only; analysis comes later.
+   Same design as the POS: track() only buffers (memory + localStorage),
+   flush() sends batches of up to 100 through rpc_log_events every 10 s,
+   at 20 queued events and when the app goes to the background. All of it
+   is try/catch'd — tracking can fail, the app can't fail because of it.
+   The server stamps who and which store. No customer data; search text
+   is kept only when a search finds nothing.
+   ============================================================ */
+const TRACK = (() => {
+    const APP = 'sandelis';
+    const BUF_KEY = 'slebute_track_buffer';
+    const MAX_BUF = 500;
+    const version = document.lastModified;   // GitHub Pages serves the deploy time as Last-Modified
+    const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+    let deviceId = null;
+    try { deviceId = localStorage.getItem('slebute_device_id'); if (!deviceId) { deviceId = uuid(); localStorage.setItem('slebute_device_id', deviceId); } } catch (e) { deviceId = uuid(); }
+    const sessionId = uuid();
+    let buf = [];
+    try { buf = JSON.parse(localStorage.getItem(BUF_KEY) || '[]'); if (!Array.isArray(buf)) buf = []; } catch (e) { buf = []; }
+    let sending = false;
+    const persist = () => { try { localStorage.setItem(BUF_KEY, JSON.stringify(buf)); } catch (e) {} };
+    const isNetFail = (e) => !navigator.onLine || /failed to fetch|networkerror|load failed|network request failed/i.test(String((e && e.message) || e || ''));
+
+    function track(event, props, extra) {
+        try {
+            buf.push(Object.assign({ at: new Date().toISOString(), event, session: sessionId, online: navigator.onLine, props: props || {} }, extra || {}));
+            if (buf.length > MAX_BUF) buf = buf.slice(-MAX_BUF);
+            persist();
+            if (buf.length >= 20) flush();
+        } catch (e) {}
+    }
+
+    async function flush() {
+        if (sending || !buf.length || !PROFILE || !navigator.onLine) return;
+        sending = true;
+        const batch = buf.slice(0, 100);
+        try {
+            const { error } = await rpcRaw('rpc_log_events', { p_app: APP, p_version: version, p_device: deviceId, p_events: batch });
+            // Network failure keeps the batch; any other error drops it so a bad batch never blocks the queue.
+            if (!error || !isNetFail(error)) { buf = buf.slice(batch.length); persist(); }
+        } catch (e) {
+            if (!isNetFail(e)) { buf = buf.slice(batch.length); persist(); }
+        } finally { sending = false; }
+    }
+
+    setInterval(flush, 10000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+    window.addEventListener('online', () => { track('online'); flush(); });
+    window.addEventListener('offline', () => track('offline'));
+    window.addEventListener('error', (e) => track('js_error', { msg: String(e.message || '').slice(0, 200), line: e.lineno || null }));
+    window.addEventListener('unhandledrejection', (e) => track('js_error', { msg: String((e.reason && e.reason.message) || e.reason || '').slice(0, 200), promise: true }));
+
+    // Rage taps: 3+ taps on the same control within 1 s.
+    let lastTapKey = null, tapTimes = [];
+    document.addEventListener('click', (e) => {
+        try {
+            const el = e.target.closest('button, a, [onclick], .pcard, .bn-item, input, select');
+            if (!el) return;
+            const key = el.id || (el.dataset && el.dataset.page) || (el.getAttribute('onclick') || '').split('(')[0] || el.className.split(' ')[0] || el.tagName;
+            const now = performance.now();
+            if (key !== lastTapKey) { lastTapKey = key; tapTimes = []; }
+            tapTimes = tapTimes.filter(t0 => now - t0 < 1000); tapTimes.push(now);
+            if (tapTimes.length === 3) track('rage_tap', {}, { target: String(key).slice(0, 120) });
+        } catch (err) {}
+    }, true);
+
+    // Wraps a global function; `before` runs first and may return state
+    // that `after` receives once the call (sync or async) has finished.
+    function hook(name, before, after) {
+        const orig = window[name];
+        if (typeof orig !== 'function') return;
+        window[name] = function (...args) {
+            let state;
+            try { state = before ? before(args) : undefined; } catch (e) {}
+            const out = orig.apply(this, args);
+            if (after) {
+                const done = () => { try { after(args, state); } catch (e) {} };
+                if (out && typeof out.then === 'function') out.then(done, done); else done();
+            }
+            return out;
+        };
+    }
+
+    return { track, flush, hook };
+})();
+
+// Every RPC: name, duration, ok/error. Patches `then` on the builder the
+// client returns (not the builder itself), so chained calls keep working.
+const rpcRaw = sb.rpc.bind(sb);
+sb.rpc = function (name, args, opts) {
+    const builder = rpcRaw(name, args, opts);
+    try {
+        const t0 = performance.now();
+        const origThen = builder.then.bind(builder);
+        builder.then = (onOk, onErr) => origThen((res) => {
+            try { TRACK.track('rpc', { name, ok: !(res && res.error), code: (res && res.error && (res.error.code || res.error.message || '').toString().slice(0, 80)) || null }, { ms: Math.round(performance.now() - t0) }); } catch (e) {}
+            return res;
+        }).then(onOk, onErr);
+    } catch (e) {}
+    return builder;
+};
+
+(() => {
+    const { track, hook } = TRACK;
+    hook('showApp', null, () => track('app_open', { role: PROFILE && PROFILE.role, width: window.innerWidth, standalone: matchMedia('(display-mode: standalone)').matches }));
+    hook('logout', () => { track('logout'); TRACK.flush(); });
+    hook('switchPage', (a) => track('view', { to: a[0] }));
+
+    let searchTimer = null;
+    hook('onSearchInput', null, () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            const q = document.getElementById('searchInput').value.trim();
+            if (!q) return;
+            const shown = document.querySelectorAll('#gridContent .pcard').length;
+            track('search', { len: q.length, shown, ...(shown === 0 ? { q: q.slice(0, 40) } : {}) });
+        }, 1500);
+    });
+    hook('openProductSheet', (a) => {
+        const cards = [...document.querySelectorAll('#gridContent .pcard')];
+        const rank = cards.findIndex(c => (c.getAttribute('onclick') || '') === `openProductSheet(${a[0]})`);
+        track('product_open', { from_search: !!document.getElementById('searchInput').value.trim(), rank: rank >= 0 ? rank + 1 : null, shown: cards.length });
+    });
+    hook('openBarcodeScanner', (a) => track('scan_start', { target: a[0] || 'searchInput' }));
+    hook('openCatalogSheet', () => track('view', { to: 'catalog' }));
+    hook('openSalesPage', () => track('view', { to: 'sales' }));
+    hook('openTrendsPage', () => track('view', { to: 'trends' }));
+    hook('submitTransferRequest', () => track('transfer_submit'));
+    hook('manageRequest', (a) => track('transfer_action', { action: typeof a[1] === 'string' ? a[1] : null }));
+    hook('toast', (a) => track('toast', { type: a[1] || 'info', msg: String(a[0] || '').slice(0, 120) }));
+})();
+
 checkSession();
 </script>
 </body>
