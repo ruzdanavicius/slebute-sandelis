@@ -449,6 +449,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
                 <div class="brand-sub" id="storeLabel">—</div>
             </div>
             <button class="icon-btn-round hidden" id="mcQuickBtn" onclick="openCatalogSheet()" title="Prekių katalogas"><i class="fas fa-shirt"></i></button>
+            <button class="icon-btn-round" onclick="openDeviceSheet()" title="Įrenginys"><i class="fas fa-mobile-screen-button"></i></button>
             <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
     </div>
@@ -592,6 +593,27 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <div class="sheet-body" id="catBody"></div>
 </div>
 
+<!-- ============ DEVICE SHEET — name this phone with a manager's code ============ -->
+<div class="sheet-scrim" id="deviceScrim" onclick="closeDeviceSheet()"></div>
+<div class="sheet" id="deviceSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head" style="border-bottom:none; padding-bottom:6px;">
+        <div class="sheet-head-text">
+            <h2>Įrenginys</h2>
+            <div class="muted" id="deviceStatus">—</div>
+        </div>
+        <button class="sheet-close" onclick="closeDeviceSheet()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="sheet-body" id="deviceBody">
+        <div id="devicePairBox">
+            <p class="muted" style="margin:0 0 10px;">Įveskite 8 skaitmenų kodą iš vadovo, kad įvardytumėte šį įrenginį.</p>
+            <input type="text" inputmode="numeric" autocomplete="off" maxlength="9" class="form-input" id="devicePairCode" placeholder="0000 0000" style="font-size:1.4rem; letter-spacing:2px; text-align:center;">
+            <p class="muted" id="devicePairMsg" style="color:var(--danger-color); min-height:1.2em; margin:8px 0 0;"></p>
+            <button class="btn btn-primary" style="margin-top:8px;" onclick="pairThisDevice()"><i class="fas fa-link"></i> Įvardyti įrenginį</button>
+        </div>
+    </div>
+</div>
+
 <div id="toastHost"></div>
 
 <script>
@@ -602,7 +624,41 @@ select.form-input { appearance: none; -webkit-appearance: none; }
    ============================================================ */
 const SUPABASE_URL = 'https://bpxakmnifkrsbjhiytqf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJweGFrbW5pZmtyc2JqaGl5dHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTMzNDgsImV4cCI6MjA4MDE4OTM0OH0.kgfljhRJeLtBIy7U8QU7DEGgRdBwcquH9QVLuhalMEY';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Per-browser device key (observe-only device registry — same key name as the
+// main POS, so a browser that opens both apps from one origin is one device).
+// A random 256-bit secret in localStorage; the database stores only its sha256.
+// Sent as an x-device-key header on Data API (REST) calls only — never on
+// auth/storage/realtime — and today nothing rejects a call for lacking it.
+const DEVICE_KEY = (function () {
+    const make = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+    try {
+        let k = localStorage.getItem('slebute_device_key');
+        if (!/^[0-9a-f]{64}$/.test(k || '')) { k = make(); localStorage.setItem('slebute_device_key', k); }
+        return k;
+    } catch (e) { return make(); }
+})();
+let _deviceBlockedAt = 0;
+function deviceAwareFetch(input, init) {
+    try {
+        const url = typeof input === 'string' ? input : '';
+        if (url.indexOf('/rest/v1/') === -1) return fetch(input, init);
+        const headers = new Headers((init && init.headers) || undefined);
+        headers.set('x-device-key', DEVICE_KEY);
+        return fetch(input, Object.assign({}, init, { headers })).then(res => {
+            // Only ever fires if blocking is switched on server-side (not today).
+            if (res.status === 401) {
+                res.clone().json().then(b => {
+                    if (b && b.message === 'device_not_paired' && Date.now() - _deviceBlockedAt > 10000) {
+                        _deviceBlockedAt = Date.now();
+                        onDeviceBlocked();
+                    }
+                }).catch(() => {});
+            }
+            return res;
+        });
+    } catch (e) { return fetch(input, init); }
+}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { global: { fetch: deviceAwareFetch } });
 
 // Reuses the same embedded favicon mark (see the <link rel="icon"> in
 // <head> — the boutique dress-silhouette logo, already baked in as a data
@@ -793,6 +849,7 @@ async function showApp() {
     document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
     document.getElementById('navSales').classList.toggle('hidden', !canManageSuppliers());
     document.getElementById('navTrends').classList.toggle('hidden', !canManageSuppliers());
+    deviceCheckIn(); // fire-and-forget, observe-only (see DEVICES section)
     await loadStores();
     await loadSupplierPicker();
     await loadCatalog();
@@ -800,6 +857,72 @@ async function showApp() {
     subscribeRealtime();
     maybeShowPushBanner();
     applyPendingPushOpen(); // tapped a transfer notification? jump to it now that data's loaded
+}
+
+/* ============================================================
+   DEVICES (observe-only)
+   Every start reports this browser's DEVICE_KEY (rpc_device_ping) so the
+   owner can see which phones use the system. Nothing is blocked. A manager
+   creates an 8-digit one-time code in the main POS (Įrenginiai); typing it
+   here gives this phone a name. Blocking exists server-side but is switched
+   off; this file only reacts to it (onDeviceBlocked) if it is ever turned
+   on. Everything here is best-effort and silent on failure.
+   ============================================================ */
+let DEVICE_STATE = null;   // { paired, label, store_id, mode } from rpc_device_ping
+
+async function deviceCheckIn() {
+    try {
+        const { data, error } = await sb.rpc('rpc_device_ping', { p_key: DEVICE_KEY, p_user_agent: navigator.userAgent });
+        if (error || !data) return;
+        DEVICE_STATE = data;
+    } catch (e) { /* observe-only: never surface */ }
+}
+function renderDeviceSheet() {
+    const st = document.getElementById('deviceStatus');
+    const box = document.getElementById('devicePairBox');
+    document.getElementById('devicePairMsg').textContent = '';
+    document.getElementById('devicePairCode').value = '';
+    if (DEVICE_STATE && DEVICE_STATE.paired) {
+        st.textContent = 'Pavadinimas: ' + (DEVICE_STATE.label || '');
+        box.style.display = 'none';
+    } else {
+        st.textContent = 'Šis įrenginys dar neįvardytas.';
+        box.style.display = '';
+    }
+}
+async function openDeviceSheet() {
+    document.getElementById('deviceScrim').classList.add('open');
+    document.getElementById('deviceSheet').classList.add('open');
+    if (!DEVICE_STATE) await deviceCheckIn();
+    renderDeviceSheet();
+}
+function closeDeviceSheet() {
+    document.getElementById('deviceScrim').classList.remove('open');
+    document.getElementById('deviceSheet').classList.remove('open');
+}
+function onDeviceBlocked() {
+    // Only reachable if the server is set to enforce. Let the user enter a code.
+    DEVICE_STATE = Object.assign({}, DEVICE_STATE, { paired: false });
+    toast('Šis įrenginys neregistruotas. Paprašykite vadovo susiejimo kodo.', 'error');
+    openDeviceSheet();
+}
+async function pairThisDevice() {
+    const msg = document.getElementById('devicePairMsg');
+    const code = document.getElementById('devicePairCode').value.replace(/\D/g, '');
+    msg.textContent = '';
+    if (code.length !== 8) { msg.textContent = 'Neteisingas arba pasibaigęs kodas.'; return; }
+    try {
+        const { data, error } = await sb.rpc('rpc_pair_device', { p_code: code, p_key: DEVICE_KEY, p_user_agent: navigator.userAgent });
+        if (error || !data) { msg.textContent = 'Nepavyko. Patikrinkite ryšį.'; return; }
+        if (!data.ok) {
+            msg.textContent = data.error === 'too_many_attempts' ? 'Per daug neteisingų kodų. Bandykite po 15 minučių.'
+                            : data.error === 'already_paired' ? 'Šis įrenginys jau įvardytas.' : 'Neteisingas arba pasibaigęs kodas.';
+            return;
+        }
+        toast('Įrenginys įvardytas.', 'success');
+        await deviceCheckIn();
+        renderDeviceSheet();
+    } catch (e) { msg.textContent = 'Nepavyko. Patikrinkite ryšį.'; }
 }
 
 async function loadStores() {
