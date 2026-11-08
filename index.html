@@ -449,7 +449,7 @@ select.form-input { appearance: none; -webkit-appearance: none; }
                 <div class="brand-sub" id="storeLabel">—</div>
             </div>
             <button class="icon-btn-round hidden" id="mcQuickBtn" onclick="openCatalogSheet()" title="Prekių katalogas"><i class="fas fa-shirt"></i></button>
-            <button class="icon-btn-round" onclick="openDeviceSheet()" title="Įrenginys"><i class="fas fa-mobile-screen-button"></i></button>
+            <button class="icon-btn-round" style="position:relative;" onclick="openDeviceSheet()" title="Įrenginys"><i class="fas fa-mobile-screen-button"></i><span id="deviceDot" class="hidden" style="position:absolute; top:4px; right:4px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--danger-color); color:#fff; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center;"></span></button>
             <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
     </div>
@@ -610,6 +610,12 @@ select.form-input { appearance: none; -webkit-appearance: none; }
             <input type="text" inputmode="numeric" autocomplete="off" maxlength="9" class="form-input" id="devicePairCode" placeholder="0000 0000" style="font-size:1.4rem; letter-spacing:2px; text-align:center;">
             <p class="muted" id="devicePairMsg" style="color:var(--danger-color); min-height:1.2em; margin:8px 0 0;"></p>
             <button class="btn btn-primary" style="margin-top:8px;" onclick="pairThisDevice()"><i class="fas fa-link"></i> Įvardyti įrenginį</button>
+        </div>
+        <!-- Owner only: new devices waiting for Priimti / Atmesti -->
+        <div id="deviceDecideBox" style="display:none; margin-top:18px; border-top:1px solid rgba(36,22,30,0.1); padding-top:14px;">
+            <h3 style="margin:0 0 4px; font-size:1rem;">Nauji įrenginiai</h3>
+            <p class="muted" style="margin:0 0 8px; font-size:0.8rem;">Priimti prideda įrenginį į patvirtintų sąrašą. Atmesti pažymi jį kaip atmestą.</p>
+            <div id="deviceDecideList" class="muted"></div>
         </div>
     </div>
 </div>
@@ -875,6 +881,7 @@ async function deviceCheckIn() {
         const { data, error } = await sb.rpc('rpc_device_ping', { p_key: DEVICE_KEY, p_user_agent: navigator.userAgent });
         if (error || !data) return;
         DEVICE_STATE = data;
+        if (isAdminRole()) loadPendingDevices();
     } catch (e) { /* observe-only: never surface */ }
 }
 function renderDeviceSheet() {
@@ -886,9 +893,56 @@ function renderDeviceSheet() {
         st.textContent = 'Pavadinimas: ' + (DEVICE_STATE.label || '');
         box.style.display = 'none';
     } else {
-        st.textContent = 'Šis įrenginys dar neįvardytas.';
+        const s = DEVICE_STATE && DEVICE_STATE.status;
+        st.textContent = s === 'pending' ? 'Šis įrenginys laukia savininko patvirtinimo.'
+                       : s === 'rejected' ? 'Savininkas atmetė šį įrenginį.' : 'Šis įrenginys dar neįvardytas.';
         box.style.display = '';
     }
+    const decide = document.getElementById('deviceDecideBox');
+    decide.style.display = isAdminRole() ? '' : 'none';
+    if (isAdminRole()) loadPendingDevices();
+}
+// Owner only: list new devices (pending first) and let the owner Priimti / Atmesti.
+// The server enforces admin-only (rpc_decide_device). Nothing here blocks a device.
+function deviceBrowserName(ua) {
+    ua = ua || '';
+    const os = /Android/i.test(ua) ? 'Android' : /iPhone|iPad/i.test(ua) ? 'iOS' : /Windows/i.test(ua) ? 'Windows'
+             : /Mac OS/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : '?';
+    const br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+             : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '?';
+    return br + ' · ' + os;
+}
+async function loadPendingDevices() {
+    const list = document.getElementById('deviceDecideList');
+    const dot = document.getElementById('deviceDot');
+    try {
+        const { data, error } = await sb.rpc('rpc_list_devices');
+        if (error || !data) { list.textContent = 'Nepavyko įkelti.'; return; }
+        const n = Number(data.pending_count) || 0;
+        dot.textContent = String(n);
+        dot.classList.toggle('hidden', n === 0);
+        const rows = data.unpaired || [];
+        list.innerHTML = rows.map(u => {
+            const rejected = u.status === 'rejected';
+            const when = u.last_seen_at ? new Date(u.last_seen_at).toLocaleString('lt-LT', { dateStyle: 'short', timeStyle: 'short' }) : '';
+            return `<div style="padding:10px 0; border-bottom:1px solid rgba(36,22,30,0.08);${rejected ? 'opacity:0.65;' : ''}">
+                <div><strong>${escapeHtml(deviceBrowserName(u.user_agent))}</strong>
+                  <span style="font-size:0.7rem; font-weight:700; padding:1px 6px; border-radius:8px; background:${rejected ? 'rgba(162,59,59,0.12)' : 'var(--accent-tint)'};">${rejected ? 'atmestas' : 'laukia'}</span></div>
+                <div class="muted" style="font-size:0.85rem;">${escapeHtml(u.store_name || '')} · ${escapeHtml(u.user_name || '')}${u.country ? ' · ' + escapeHtml(u.country) : ''} · ${escapeHtml(when)}</div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                  <button class="btn btn-primary" style="flex:1;" onclick="decideDevice('${escapeHtml(u.sighting_id)}','approve')">Priimti</button>
+                  ${rejected ? '' : `<button class="btn" style="flex:1; background:rgba(36,22,30,0.08);" onclick="decideDevice('${escapeHtml(u.sighting_id)}','reject')">Atmesti</button>`}
+                </div></div>`;
+        }).join('') || 'Naujų įrenginių nėra.';
+    } catch (e) { list.textContent = 'Nepavyko įkelti.'; }
+}
+async function decideDevice(sightingId, decision) {
+    try {
+        const { data, error } = await sb.rpc('rpc_decide_device', { p_key_hash: sightingId, p_decision: decision });
+        if (error || !data || !data.ok) { toast(error ? error.message : 'Nepavyko. Patikrinkite ryšį.', 'error'); return; }
+        toast(decision === 'approve' ? 'Įrenginys priimtas.' : 'Įrenginys atmestas.', 'success');
+        loadPendingDevices();
+    } catch (e) { toast('Nepavyko. Patikrinkite ryšį.', 'error'); }
 }
 async function openDeviceSheet() {
     document.getElementById('deviceScrim').classList.add('open');
@@ -2404,6 +2458,7 @@ function applyPendingPushOpen() {
     const target = PENDING_PUSH_OPEN;
     PENDING_PUSH_OPEN = null;
     if (target === 'transfers') switchPage('requests');
+    else if (target === 'devices') openDeviceSheet(); // new-device push (send-device-push)
     // Strip the param so a manual refresh/reshare of this URL doesn't
     // keep reopening the page — only an actual notification tap does this.
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
