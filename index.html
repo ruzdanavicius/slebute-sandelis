@@ -704,6 +704,11 @@ let audioCtx = null;
 // lands on the main screen as usual.
 let PENDING_PUSH_OPEN = new URLSearchParams(location.search).get('fromPush');
 
+// Categories carry a 2-digit order suffix ("Suknelės 01" … "Striukės 09"): sort by that number, then name; un-numbered / '—' go last.
+function compareCategories(a, b) {
+    const n = s => { const m = /(\d+)\s*$/.exec(s || ''); return m ? parseInt(m[1], 10) : 9999; };
+    return (n(a) - n(b)) || String(a).localeCompare(String(b), 'lt');
+}
 function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
@@ -1554,7 +1559,7 @@ async function closeBarcodeScanner() {
 }
 
 function renderCategoryChips() {
-    const cats = [...new Set(products.map(p => p.category || '—'))].sort((a, b) => a.localeCompare(b, 'lt'));
+    const cats = [...new Set(products.map(p => p.category || '—'))].sort(compareCategories);
     const row = document.getElementById('chipRow');
     if (cats.length < 2) { row.innerHTML = ''; return; }
     row.innerHTML = `<div class="chip ${activeCategory===null?'active':''}" onclick="setCategory(null)">Visos</div>` +
@@ -2716,7 +2721,7 @@ function renderCatalogEditForm() {
     document.getElementById('catSheetTitle').innerText = p ? p.name : 'Naujas modelis';
     document.getElementById('catSheetSub').innerText = p ? 'Redaguoti modelį ir prekes' : 'Pridėti naują modelį';
 
-    const categories = [...new Set(products.map(x => x.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'lt'));
+    const categories = [...new Set(products.map(x => x.category).filter(Boolean))].sort(compareCategories);
     const matchedSupplier = p ? supplierPicker.find(s => s.id === p.supplierId) : null;
 
     document.getElementById('catBody').innerHTML = `
