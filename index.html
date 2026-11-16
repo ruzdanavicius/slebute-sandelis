@@ -150,10 +150,6 @@ img { -webkit-user-drag: none; }
 .img-placeholder img { width: 34%; max-width: 56px; height: auto; object-fit: contain; opacity: 0.22; filter: grayscale(1); }
 .img-placeholder.img-placeholder-label { flex-direction: column; gap: 6px; }
 .img-placeholder-text { font-size: 0.62rem; color: var(--text-secondary); text-align: center; padding: 0 6px; }
-/* Tappable "no photo" slot (manager/admin): opens the camera — see capturePhotoFor(). */
-.img-placeholder-add { cursor: pointer; }
-.img-placeholder-add .img-placeholder-text { font-size: 0.72rem; font-weight: 600; color: var(--accent-color); }
-.img-placeholder-add:active { opacity: 0.6; }
 .mc-photo-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(36,22,30,0.15); background: #fff; flex-shrink: 0; }
 .mc-photo-thumb.is-cover { border: 2px solid var(--accent-color); }
 /* Same brand-mark fallback for single, persistent <img> elements (like
@@ -750,14 +746,6 @@ function placeholderPhotoHTML(cssClass, withLabel) {
 function photoTagHTML(url, cssClass, withLabel) {
     if (!url) return placeholderPhotoHTML(cssClass, withLabel);
     return `<img src="${escapeHtml(url)}" class="${cssClass}" loading="lazy" onerror="this.outerHTML=placeholderPhotoHTML('${cssClass}', ${!!withLabel})">`;
-}
-// Grid-card "no photo" slot for a manager/admin: same brand-mark
-// placeholder, but tapping it opens the phone camera straight away and
-// saves the shot as this style's cover photo (capturePhotoFor). Only used
-// when the style genuinely has no cover — a card WITH a photo, and every
-// card for a cashier, keeps its normal tap (opens the product sheet).
-function addPhotoPlaceholderHTML(productId) {
-    return `<div class="img-placeholder img-placeholder-label img-placeholder-add" onclick="capturePhotoFor(event, ${productId})"><img src="${BRAND_MARK_URL}" alt=""><span class="img-placeholder-text"><i class="fas fa-camera"></i> Fotografuoti</span></div>`;
 }
 // For a persistent, id-referenced <img> (set directly in JS rather than
 // re-rendered from a template each time) — same brand-mark fallback via
@@ -1612,7 +1600,7 @@ function renderGrid(list) {
             : '';
         return `<div class="pcard" onclick="openProductSheet(${p.id})">
             <div class="pcard-img-wrap">
-                ${(!p.image_url && canManageCatalog()) ? addPhotoPlaceholderHTML(p.id) : photoTagHTML(p.image_url, '', true)}
+                ${photoTagHTML(p.image_url, '', true)}
                 ${sale ? `<span class="pcard-sale">NUOLAIDA</span>` : ''}
                 <span class="pcard-stock-dot ${dot}"></span>
             </div>
@@ -3259,9 +3247,9 @@ async function addPhotoToProduct(productId, url, current) {
 
 function photoLimitToast() { toast(`Šis modelis jau turi ${PHOTO_MAX} nuotraukas (daugiausia). Ištrinti galima kompiuteryje.`, 'warn'); }
 
-/* Stock tab: tap the "no photo" placeholder (grid card after a scan/search,
-   or the product sheet) -> phone camera -> saved as that style's photo.
-   One hidden capture input shared by every placeholder. */
+/* Stock tab: tap the "no photo" placeholder in the product sheet -> phone
+   camera -> saved as that style's photo. Deliberately NOT on the grid cards
+   (people hit it by accident while scrolling). */
 let _quickPhotoProductId = null;
 function capturePhotoFor(ev, productId) {
     if (ev) { ev.stopPropagation(); ev.preventDefault(); }
