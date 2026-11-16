@@ -150,6 +150,12 @@ img { -webkit-user-drag: none; }
 .img-placeholder img { width: 34%; max-width: 56px; height: auto; object-fit: contain; opacity: 0.22; filter: grayscale(1); }
 .img-placeholder.img-placeholder-label { flex-direction: column; gap: 6px; }
 .img-placeholder-text { font-size: 0.62rem; color: var(--text-secondary); text-align: center; padding: 0 6px; }
+/* Tappable "no photo" slot (manager/admin): opens the camera — see capturePhotoFor(). */
+.img-placeholder-add { cursor: pointer; }
+.img-placeholder-add .img-placeholder-text { font-size: 0.72rem; font-weight: 600; color: var(--accent-color); }
+.img-placeholder-add:active { opacity: 0.6; }
+.mc-photo-thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(36,22,30,0.15); background: #fff; flex-shrink: 0; }
+.mc-photo-thumb.is-cover { border: 2px solid var(--accent-color); }
 /* Same brand-mark fallback for single, persistent <img> elements (like
    the product sheet header) that get their src set directly in JS
    rather than re-rendered from a template each time. */
@@ -564,6 +570,9 @@ select.form-input { appearance: none; -webkit-appearance: none; }
     <p class="scan-hint">Nukreipkite kamerą į prekės QR kodą arba brūkšninį kodą</p>
 </div>
 
+<!-- Shared camera input for "tap the no-photo placeholder" (capturePhotoFor) -->
+<input type="file" id="quickPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="quickPhotoCaptured()">
+
 <!-- ============ PRODUCT DETAIL SHEET ============ -->
 <div class="sheet-scrim" id="productScrim" onclick="closeProductSheet()"></div>
 <div class="sheet" id="productSheet">
@@ -741,6 +750,14 @@ function placeholderPhotoHTML(cssClass, withLabel) {
 function photoTagHTML(url, cssClass, withLabel) {
     if (!url) return placeholderPhotoHTML(cssClass, withLabel);
     return `<img src="${escapeHtml(url)}" class="${cssClass}" loading="lazy" onerror="this.outerHTML=placeholderPhotoHTML('${cssClass}', ${!!withLabel})">`;
+}
+// Grid-card "no photo" slot for a manager/admin: same brand-mark
+// placeholder, but tapping it opens the phone camera straight away and
+// saves the shot as this style's cover photo (capturePhotoFor). Only used
+// when the style genuinely has no cover — a card WITH a photo, and every
+// card for a cashier, keeps its normal tap (opens the product sheet).
+function addPhotoPlaceholderHTML(productId) {
+    return `<div class="img-placeholder img-placeholder-label img-placeholder-add" onclick="capturePhotoFor(event, ${productId})"><img src="${BRAND_MARK_URL}" alt=""><span class="img-placeholder-text"><i class="fas fa-camera"></i> Fotografuoti</span></div>`;
 }
 // For a persistent, id-referenced <img> (set directly in JS rather than
 // re-rendered from a template each time) — same brand-mark fallback via
@@ -1595,7 +1612,7 @@ function renderGrid(list) {
             : '';
         return `<div class="pcard" onclick="openProductSheet(${p.id})">
             <div class="pcard-img-wrap">
-                ${photoTagHTML(p.image_url, '', true)}
+                ${(!p.image_url && canManageCatalog()) ? addPhotoPlaceholderHTML(p.id) : photoTagHTML(p.image_url, '', true)}
                 ${sale ? `<span class="pcard-sale">NUOLAIDA</span>` : ''}
                 <span class="pcard-stock-dot ${dot}"></span>
             </div>
@@ -1668,7 +1685,14 @@ function closeStorageSiblingHintOnOutsideClick() {
 function openProductSheet(productId) {
     const p = products.find(x => x.id === productId);
     if (!p) return;
-    setImgOrPlaceholder(document.getElementById('psImg'), p.image_url || '');
+    const psImg = document.getElementById('psImg');
+    setImgOrPlaceholder(psImg, p.image_url || '');
+    // No cover photo yet + manager/admin: the placeholder itself is the
+    // "take a photo" button. With a photo it stays a plain image, as before.
+    psImg.dataset.pid = p.id;
+    const canAddPhoto = !p.image_url && canManageCatalog();
+    psImg.onclick = canAddPhoto ? (e) => capturePhotoFor(e, p.id) : null;
+    psImg.style.cursor = canAddPhoto ? 'pointer' : '';
     document.getElementById('psName').innerText = p.name;
     const metaBits = [p.category, p.size_range, p.composition].filter(Boolean);
     document.getElementById('psMeta').innerText = metaBits.join(' · ') || '—';
@@ -2733,9 +2757,9 @@ function renderCatalogEditForm() {
                 <input type="text" id="mc_image" style="display:none;" value="${escapeHtml(p?.image_url || '')}">
                 <label for="mcImgUploader" class="btn btn-ghost-sm" style="cursor:pointer;"><i class="fas fa-camera"></i> Fotografuoti</label>
                 <input type="file" id="mcImgUploader" accept="image/*" capture="environment" style="display:none;" onchange="mcUploadProductPhoto()">
-                <img id="mcImgPreview" src="${escapeHtml(p?.image_url || '')}" style="width:42px; height:42px; border-radius:8px; object-fit:cover; display:${p?.image_url ? 'block' : 'none'}; border:1px solid rgba(36,22,30,0.15); flex-shrink:0;">
                 <span id="mcUploadStatus" style="font-size:0.74rem; color:var(--text-secondary);">${p?.image_url ? '' : 'Nuotrauka nepasirinkta'}</span>
             </div>
+            <div id="mcPhotoStrip" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
         </div>
 
         <div class="form-group">
@@ -2778,6 +2802,11 @@ function renderCatalogEditForm() {
     `;
 
     document.getElementById('mcColorBlocks').innerHTML = '';
+    // Photo strip: cover first (what the catalog already loaded), then the
+    // extra library photos fetched from product_images.
+    mcPhotoUrls = p && p.image_url ? [p.image_url] : [];
+    mcRenderPhotoStrip();
+    if (p) mcLoadPhotoLibrary(p.id);
     if (p) {
         const byColor = {};
         for (const v of p.variants) {
@@ -3175,34 +3204,150 @@ function mcHideSupplierSuggest() {
     if (box) box.classList.remove('open');
 }
 
-// Same client-side compress-then-upload pipeline as the supplier photo and
-// desktop product image uploaders — one 'pos-images' bucket, one approach.
+/* ── Product photos: cover + library (2026-11-16) ───────────────────────────
+   Same structure the desktop Manage Catalog already writes: the cover photo
+   is products.image_url, the extra photos are product_images rows (in
+   sort_order), PHOTO_MAX in total per style. Mobile only ever ADDS:
+   a captured photo becomes the cover only when the style has none, otherwise
+   it is appended to the library — it never replaces an existing photo.
+   Reordering / deleting stays on desktop's photo manager. */
+const PHOTO_MAX = 4;
+let mcPhotoUrls = [];   // edit form's photos, cover first (mirrors desktop's currentPhotoUrls)
+
+// Compress + upload one camera shot to the shared 'pos-images' bucket (same
+// pipeline as the supplier photo and desktop uploaders). Returns its public URL.
+async function uploadProductPhotoFile(file, onStatus) {
+    if (onStatus) onStatus('Suspaudžiama...');
+    const blob = await compressImageFile(file);
+    if (onStatus) onStatus(`Įkeliama (${(blob.size/1024).toFixed(0)}KB)...`);
+    const filePath = `product_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
+    const { error } = await sb.storage.from('pos-images').upload(filePath, blob, { contentType: 'image/jpeg' });
+    if (error) throw error;
+    return sb.storage.from('pos-images').getPublicUrl(filePath).data.publicUrl;
+}
+
+// Current photos of a saved style, read fresh from the DB (the catalog RPC
+// only carries the cover): [cover, ...library in sort_order].
+async function fetchProductPhotos(productId) {
+    const [prodRes, galRes] = await Promise.all([
+        sb.from('products').select('image_url').eq('id', productId).single(),
+        sb.from('product_images').select('image_url, sort_order').eq('product_id', productId).order('sort_order')
+    ]);
+    if (prodRes.error) throw prodRes.error;
+    if (galRes.error) throw galRes.error;
+    const cover = prodRes.data.image_url || null;
+    const rows = galRes.data || [];
+    const nextSort = rows.length ? Math.max(...rows.map(r => r.sort_order)) + 1 : 0;
+    return { cover, urls: [...(cover ? [cover] : []), ...rows.map(r => r.image_url)], nextSort };
+}
+
+// Adds one uploaded photo to a saved style without touching what is there:
+// no cover yet -> it becomes the cover; otherwise a new product_images row.
+// `current` is a fetchProductPhotos() result. Returns 'cover' | 'library'.
+async function addPhotoToProduct(productId, url, current) {
+    if (!current.cover) {
+        const { error } = await sb.from('products').update({ image_url: url }).eq('id', productId);
+        if (error) throw error;
+        const p = products.find(x => x.id === productId);
+        if (p) p.image_url = url;
+        return 'cover';
+    }
+    const { error } = await sb.from('product_images').insert({ product_id: productId, image_url: url, sort_order: current.nextSort });
+    if (error) throw error;
+    return 'library';
+}
+
+function photoLimitToast() { toast(`Šis modelis jau turi ${PHOTO_MAX} nuotraukas (daugiausia). Ištrinti galima kompiuteryje.`, 'warn'); }
+
+/* Stock tab: tap the "no photo" placeholder (grid card after a scan/search,
+   or the product sheet) -> phone camera -> saved as that style's photo.
+   One hidden capture input shared by every placeholder. */
+let _quickPhotoProductId = null;
+function capturePhotoFor(ev, productId) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    if (!canManageCatalog()) return;
+    _quickPhotoProductId = productId;
+    const input = document.getElementById('quickPhotoInput');
+    input.value = '';
+    input.click();
+}
+async function quickPhotoCaptured() {
+    const input = document.getElementById('quickPhotoInput');
+    const file = input.files[0];
+    const productId = _quickPhotoProductId;
+    input.value = '';
+    if (!file || !productId) return;
+    toast('Nuotrauka įkeliama...', 'info');
+    try {
+        const current = await fetchProductPhotos(productId);
+        if (current.urls.length >= PHOTO_MAX) { photoLimitToast(); return; }
+        const url = await uploadProductPhotoFile(file);
+        const where = await addPhotoToProduct(productId, url, current);
+        toast(where === 'cover' ? 'Nuotrauka išsaugota.' : 'Nuotrauka pridėta prie modelio nuotraukų.', 'success');
+    } catch (e) {
+        toast('Nepavyko išsaugoti nuotraukos: ' + (e.message || e), 'error');
+        return;
+    }
+    // Show it straight away: re-run the current search/filter and refresh the
+    // open product sheet's picture, without closing anything.
+    const q = document.getElementById('searchInput').value;
+    renderGrid(applyFilters(q ? searchProducts(q) : products));
+    const psImg = document.getElementById('psImg');
+    const p = products.find(x => x.id === productId);
+    if (p && psImg && psImg.dataset.pid === String(productId)) {
+        setImgOrPlaceholder(psImg, p.image_url || '');
+        if (p.image_url) { psImg.onclick = null; psImg.style.cursor = ''; }
+    }
+}
+
+function mcRenderPhotoStrip() {
+    const strip = document.getElementById('mcPhotoStrip');
+    if (!strip) return;
+    strip.innerHTML = mcPhotoUrls.map((u, i) =>
+        `<img src="${escapeHtml(u)}" class="mc-photo-thumb${i === 0 ? ' is-cover' : ''}" title="${i === 0 ? 'Pagrindinė nuotrauka' : 'Papildoma nuotrauka'}" onerror="this.style.opacity=0.3">`).join('');
+    const status = document.getElementById('mcUploadStatus');
+    if (status && mcPhotoUrls.length) status.innerText = `${mcPhotoUrls.length} / ${PHOTO_MAX} nuotr.`;
+}
+
+async function mcLoadPhotoLibrary(productId) {
+    try {
+        const current = await fetchProductPhotos(productId);
+        if (mcEditingProductId !== productId || !document.getElementById('mcPhotoStrip')) return; // form moved on
+        mcPhotoUrls = current.urls;
+        mcRenderPhotoStrip();
+    } catch (e) { /* strip keeps showing the cover from the catalog */ }
+}
+
+// "Fotografuoti" in the edit form. Each shot is ADDED: a saved style gets it
+// written immediately (cover only if there is none, else the library), so
+// several can be taken one after another without leaving the form; a not-yet-
+// saved style collects them here and mcSaveProduct() stores them.
 async function mcUploadProductPhoto() {
     const fileInput = document.getElementById('mcImgUploader');
     const file = fileInput.files[0];
     if (!file) return;
     const status = document.getElementById('mcUploadStatus');
-    status.innerText = 'Suspaudžiama...';
-
-    let blob;
+    const productId = mcEditingProductId;
     try {
-        blob = await compressImageFile(file);
+        let current = null;
+        if (productId) {
+            current = await fetchProductPhotos(productId);
+            mcPhotoUrls = current.urls;
+        }
+        if (mcPhotoUrls.length >= PHOTO_MAX) { mcRenderPhotoStrip(); photoLimitToast(); return; }
+        const url = await uploadProductPhotoFile(file, t => { status.innerText = t; });
+        if (productId) await addPhotoToProduct(productId, url, current);
+        if (mcEditingProductId !== productId || !document.getElementById('mcPhotoStrip')) return; // form moved on
+        mcPhotoUrls.push(url);
+        document.getElementById('mc_image').value = mcPhotoUrls[0];
+        mcRenderPhotoStrip();
+        toast(mcPhotoUrls.length === 1 ? 'Pagrindinė nuotrauka pridėta.' : `Nuotrauka pridėta (${mcPhotoUrls.length} / ${PHOTO_MAX}).`, 'success');
     } catch (e) {
-        toast('Nepavyko apdoroti nuotraukos: ' + e.message, 'error');
+        toast('Nepavyko pridėti nuotraukos: ' + (e.message || e), 'error');
         status.innerText = 'Klaida';
-        return;
+    } finally {
+        fileInput.value = '';   // so the next tap re-opens the camera and fires onchange again
     }
-
-    status.innerText = `Įkeliama (${(blob.size/1024).toFixed(0)}KB)...`;
-    const filePath = `product_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
-    const { error } = await sb.storage.from('pos-images').upload(filePath, blob, { contentType: 'image/jpeg' });
-    if (error) { toast(error.message, 'error'); status.innerText = 'Klaida'; return; }
-
-    const { data } = sb.storage.from('pos-images').getPublicUrl(filePath);
-    document.getElementById('mc_image').value = data.publicUrl;
-    document.getElementById('mcImgPreview').src = data.publicUrl;
-    document.getElementById('mcImgPreview').style.display = 'block';
-    status.innerText = `Įkelta (${(blob.size/1024).toFixed(0)}KB)`;
 }
 
 // Same rpc_upsert_fashion_product desktop's Save Style uses — only NEW size
@@ -3249,6 +3394,13 @@ async function mcSaveProduct() {
     btn.disabled = false; btn.innerText = 'Išsaugoti modelį';
 
     if (error) { toast(error.message, 'error'); return; }
+    // A brand-new style had no id while its photos were taken: the first is
+    // already saved as the cover (image_url above), the rest go to the library now.
+    if (!payload_product.id && mcPhotoUrls.length > 1) {
+        const extraRows = mcPhotoUrls.slice(1).map((url, i) => ({ product_id: data.product_id, image_url: url, sort_order: i }));
+        const { error: galErr } = await sb.from('product_images').insert(extraRows);
+        if (galErr) toast('Papildomų nuotraukų išsaugoti nepavyko: ' + galErr.message, 'error');
+    }
     toast('Modelis išsaugotas.', 'success');
     await loadCatalog(); // refreshes the shared `products` catalog the whole app reads from
     mcEditingProductId = data.product_id;
