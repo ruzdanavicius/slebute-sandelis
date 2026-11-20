@@ -2392,8 +2392,17 @@ function queueInventoryReload() {
 let realtimeReconnectTimer = null;
 
 function subscribeRealtime() {
-    if (realtimeChannel) { try { sb.removeChannel(realtimeChannel); } catch (e) {} realtimeChannel = null; }
-    realtimeChannel = sb.channel('stock-check-live')
+    // Reconnect-loop fix (2026-11-21): removing a channel makes it report
+    // CLOSED to its own status callback, which used to schedule another
+    // subscribeRealtime() — a leave+rejoin every 4 s for as long as the app
+    // was open after the first resync ("SocketJoinRateLimitReached" in the
+    // Realtime logs). Clear any pending retry, drop the reference before
+    // removing, and ignore status from a channel that is no longer current.
+    if (realtimeReconnectTimer) { clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; }
+    const oldChannel = realtimeChannel;
+    realtimeChannel = null;
+    if (oldChannel) { try { sb.removeChannel(oldChannel); } catch (e) {} }
+    const ch = sb.channel('stock-check-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_requests' }, () => {
             playPing();
             toast('Užklausų sąrašas atnaujintas.', 'info');
@@ -2408,8 +2417,11 @@ function subscribeRealtime() {
             // isn't worth a silent refetch (same guard the desktop Daily
             // Sales view uses on its own 'orders' subscription).
             if (isPageActive('sales') && salesCurrentDate === todayDateStrLocal()) loadSalesDay(salesCurrentDate, true);
-        })
-        .subscribe((status) => {
+        });
+    realtimeChannel = ch;
+    ch.subscribe((status) => {
+            // A channel we replaced or removed on purpose — not a drop.
+            if (ch !== realtimeChannel) return;
             // Self-healing: a phone that gets backgrounded, locked, loses
             // signal in a stockroom, or just sits open for a full shift
             // will eventually see its socket drop. Reconnect instead of
