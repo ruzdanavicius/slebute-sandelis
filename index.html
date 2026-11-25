@@ -844,13 +844,13 @@ async function login() {
     }
     const ok = await loadProfile(data.user.id);
     btn.disabled = false; btn.innerText = 'Prisijungti';
-    if (ok) showApp(); else await sb.auth.signOut();
+    if (ok) showApp(); else await sb.auth.signOut({ scope: 'local' });
 }
 
 async function logout() {
     if (realtimeReconnectTimer) { clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; }
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: 'local' }); // this device only — the default 'global' signed the account out on every till too
     window.location.reload();
 }
 
