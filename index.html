@@ -1616,7 +1616,7 @@ function renderGrid(list) {
             </div>
             <div class="pcard-body">
                 <div class="pcard-name">${escapeHtml(p.name)} ${storageHint}</div>
-                <div class="pcard-meta"><span>${escapeHtml(p.category || '—')}</span><span class="pcard-total">${total} vnt.</span></div>
+                <div class="pcard-meta"><span>${escapeHtml(p.base_barcode || '—')}</span><span class="pcard-total">${total} vnt.</span></div>
             </div>
         </div>`;
     }).join('') + `</div>`;
