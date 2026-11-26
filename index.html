@@ -2172,7 +2172,7 @@ function salesStoreCardHtml(name, t, isCombined, storeId, isActive) {
     const orders = Number((t && t.order_count) || 0);
     const classes = `store-sales-card${isCombined ? ' combined' : ''}${isActive ? ' active' : ''}`;
     // Once v_daily_sales exposes split_cash/split_card (migration
-    // 20261126190000), cash/card already include each mixed sale's parts, so
+    // 20261126175024), cash/card already include each mixed sale's parts, so
     // the mixed amount is shown as "of which" rather than a third lump to add.
     const splitIncluded = !!(t && t.split_cash !== undefined);
     const splitSpan = split > 0
