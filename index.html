@@ -351,6 +351,23 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .mc-empty { padding: 40px 16px; text-align: center; color: var(--text-secondary); font-size: 0.85rem; white-space: normal; }
 .mc-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; color: var(--text-secondary); align-items: center; }
 .mc-legend .mc-c { min-width: 20px; height: 20px; font-size: 0.68rem; }
+/* Phone turned sideways on Katalogas: the table goes (almost) full screen.
+   Topbar, bottom nav, push banner and legend hide; search, filters and the
+   count share one thin row. Turning the phone back brings the menus back.
+   #app.mc-on is set by switchPage() while Katalogas is the open page. */
+@media (orientation: landscape) and (max-height: 520px) {
+    #app.mc-on .topbar, #app.mc-on .bottom-nav, #app.mc-on #pushBanner { display: none !important; }
+    #page-catalog { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+    #page-catalog .mc-legend { display: none; }
+    #page-catalog .mc-head { flex-direction: row; align-items: center; gap: 6px; padding: 5px 8px; padding-top: calc(5px + var(--safe-top)); }
+    #page-catalog .mc-search { flex: 1 1 auto; min-width: 140px; }
+    #page-catalog .mc-search .form-input { height: 36px; }
+    #page-catalog .mc-search-clear { width: 34px; height: 34px; }
+    #page-catalog .mc-tools { flex: 0 1 auto; grid-template-columns: minmax(110px, 170px) minmax(110px, 170px) 84px; }
+    #page-catalog .mc-tools .form-input { height: 36px; }
+    #page-catalog .mc-stats { flex: 0 0 auto; white-space: nowrap; font-size: 0.7rem; }
+    #page-catalog .mc-table tbody tr { height: 42px; }
+}
 /* ---------------- TRENDS — admin/manager only ---------------- */
 .trends-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
 .period-tabs { display: flex; gap: 6px; }
@@ -1095,6 +1112,7 @@ async function loadStores() {
 function switchPage(name) {
     document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + name));
     document.querySelectorAll('.bn-item, #trendsQuickBtn').forEach(el => el.classList.toggle('active', el.dataset.page === name));
+    document.getElementById('app').classList.toggle('mc-on', name === 'catalog'); // landscape full-screen table, see .mc-on CSS
     if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
     else if (name === 'sales') { openSalesPage(); }
     else if (name === 'trends') { openTrendsPage(); }
