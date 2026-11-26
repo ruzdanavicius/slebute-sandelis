@@ -718,6 +718,16 @@ function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+// Sizes are stored in capitals with the numbered plus-size spelling
+// ("xl" -> "XL", "XXL" -> "2XL", "XXXL" -> "3XL"), so "xl" and "XL" never
+// end up as two sizes. Also used for the size range ("L-XXL" -> "L-2XL").
+// SKUs are left as typed - printed labels must keep scanning.
+// Same helper as the desktop app's normSize().
+function normSize(v) {
+    return String(v ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
+        .replace(/\bXXXL\b/g, '3XL').replace(/\bXXL\b/g, '2XL');
+}
+
 // Reads an amount typed by hand: "4.5" and "4,5" both mean 4.5 (the money
 // inputs are type="text", so the browser's locale never rewrites them).
 // Where both separators appear the last one is the decimal ("1.234,50").
@@ -3364,7 +3374,7 @@ async function mcSaveProduct() {
         const colorName = block.querySelector('.mc-color-name-input').value.trim() || 'Standard';
         const colorHex = block.querySelector('.mc-color-hex-input').value;
         block.querySelectorAll('.mc-size-row-new').forEach(row => {
-            const size = row.querySelector('.mc-size-input').value.trim();
+            const size = normSize(row.querySelector('.mc-size-input').value);
             if (!size) return;
             const price = parseMoney(row.querySelector('.mc-price-input').value) || 0;
             const cost = parseMoney(row.querySelector('.mc-cost-input').value) || 0;
@@ -3384,7 +3394,7 @@ async function mcSaveProduct() {
         id: mcEditingProductId, name,
         base_barcode: document.getElementById('mc_base_barcode').value.trim() || null,
         category: document.getElementById('mc_category').value.trim() || null,
-        size_range: document.getElementById('mc_size_range').value.trim() || null,
+        size_range: normSize(document.getElementById('mc_size_range').value) || null,
         composition: document.getElementById('mc_composition').value.trim() || null,
         description: document.getElementById('mc_description').value.trim() || null,
         image_url: document.getElementById('mc_image').value || null,
