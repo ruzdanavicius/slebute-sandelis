@@ -99,6 +99,7 @@ img { -webkit-user-drag: none; }
     position: relative; flex-shrink: 0; cursor: pointer;
 }
 .icon-btn-round:active { background: var(--card-bg-raised); }
+.icon-btn-round.active { color: var(--accent-color); background: var(--accent-tint); }
 .bell-dot {
     position: absolute; top: 5px; right: 6px; width: 10px; height: 10px; border-radius: 50%;
     background: var(--danger-color); border: 2px solid var(--card-bg); display: none;
@@ -305,6 +306,51 @@ select.form-input { appearance: none; -webkit-appearance: none; }
 .img-preview-popup { position: fixed; z-index: 200; background: var(--card-bg); border: var(--glass-border); border-radius: 12px; box-shadow: 0 14px 34px var(--shadow-color); padding: 6px; }
 .img-preview-popup img { width: 180px; height: 180px; object-fit: contain; border-radius: 8px; display: block; background: #fff; }
 
+/* ---------------- PREKIŲ KATALOGAS (phone) — admin/manager only ----------------
+   Phone version of the desktop stock matrix: one row per in-stock style,
+   sticky name + total, 32px size columns that scroll sideways. Size
+   columns that are empty for the whole filtered view are hidden. */
+.mc-head { flex-shrink: 0; padding: 10px 12px 8px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 8px; }
+.mc-search { position: relative; }
+.mc-search .form-input { height: 44px; padding: 0 40px 0 36px; font-size: 16px; }
+.mc-search > .fa-magnifying-glass { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem; pointer-events: none; }
+.mc-search-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--text-secondary); width: 40px; height: 40px; border-radius: 8px; }
+.mc-tools { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+.mc-tools .form-input { height: 38px; padding: 0 8px; font-size: 0.8rem; min-width: 0; text-overflow: ellipsis; }
+.mc-tools .form-input.on { border-color: var(--accent-color); color: var(--accent-color); background: var(--accent-tint); font-weight: 600; }
+.mc-stats { font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.mc-stats b { color: var(--text-primary); font-weight: 600; }
+.mc-wrap { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; background: var(--card-bg); padding-bottom: var(--safe-bottom); }
+.mc-table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.mc-table th, .mc-table td { padding: 0; text-align: center; white-space: nowrap; }
+.mc-table thead th { position: sticky; z-index: 3; background: var(--card-bg); }
+.mc-table tr.mc-h th { top: 0; height: 34px; font-size: 0.75rem; font-weight: 600; color: var(--text-primary); line-height: 1.05; }
+.mc-table tr.mc-h th small { display: block; font-size: 0.62rem; font-weight: 500; color: var(--text-secondary); min-height: 0.7rem; }
+.mc-table tr.mc-sum th { top: 34px; height: 24px; font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); background: var(--input-bg); border-bottom: 1px solid rgba(36,22,30,0.14); }
+.mc-table .mc-n { position: sticky; left: 0; z-index: 2; width: 128px; min-width: 128px; max-width: 128px; text-align: left; padding: 4px 6px 4px 10px; background: inherit; }
+.mc-table .mc-t { position: sticky; left: 128px; z-index: 2; width: 36px; min-width: 36px; font-weight: 700; font-size: 0.88rem; background: inherit; box-shadow: 6px 0 8px -8px rgba(36,22,30,0.35); }
+.mc-table thead .mc-n, .mc-table thead .mc-t { z-index: 4; }
+.mc-table tr.mc-h .mc-n, .mc-table tr.mc-h .mc-t { background: var(--card-bg); }
+.mc-table tr.mc-sum .mc-n, .mc-table tr.mc-sum .mc-t { background: var(--input-bg); }
+.mc-table .mc-s { width: 32px; min-width: 32px; max-width: 32px; }
+.mc-table .mc-s.mc-wide { width: auto; max-width: none; min-width: 40px; padding: 0 6px; }
+.mc-table .mc-div { border-left: 2px solid rgba(36,22,30,0.12); }
+.mc-table tbody tr { background: var(--card-bg); height: 48px; }
+.mc-table tbody tr:nth-child(even) { background: #FCFAFB; }
+.mc-table tbody tr:active { background: var(--accent-tint); }
+.mc-table tbody td { border-bottom: 1px solid rgba(36,22,30,0.07); }
+.mc-nm { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; font-size: 0.8rem; font-weight: 600; line-height: 1.15; }
+.mc-sub { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 0.68rem; color: var(--text-secondary); margin-top: 1px; }
+.mc-sub b { font-weight: 600; color: var(--text-primary); }
+.mc-table mark { background: #F6E2B8; color: inherit; border-radius: 2px; }
+.mc-c { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 3px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; background: var(--input-bg); color: var(--text-primary); }
+.mc-c.q2 { background: #EADFE4; }
+.mc-c.q5 { background: var(--accent-tint); color: var(--accent-color); box-shadow: inset 0 0 0 1px rgba(107,37,69,0.18); font-weight: 700; }
+.mc-c.e { background: transparent; border: 1px dashed rgba(36,22,30,0.26); color: rgba(36,22,30,0.4); font-weight: 400; }
+.mc-c i { font-style: normal; font-size: 0.58rem; font-weight: 600; color: var(--text-secondary); margin-right: 2px; }
+.mc-empty { padding: 40px 16px; text-align: center; color: var(--text-secondary); font-size: 0.85rem; white-space: normal; }
+.mc-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.68rem; color: var(--text-secondary); align-items: center; }
+.mc-legend .mc-c { min-width: 20px; height: 20px; font-size: 0.68rem; }
 /* ---------------- TRENDS — admin/manager only ---------------- */
 .trends-head { flex-shrink: 0; padding: 10px 16px; background: var(--card-bg); border-bottom: var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
 .period-tabs { display: flex; gap: 6px; }
@@ -451,7 +497,10 @@ select.form-input { appearance: none; -webkit-appearance: none; }
                 <div class="brand-sub" id="storeLabel">—</div>
             </div>
             <button class="icon-btn-round hidden" id="mcQuickBtn" onclick="openCatalogSheet()" title="Prekių katalogas"><i class="fas fa-shirt"></i></button>
-            <button class="icon-btn-round" style="position:relative;" onclick="openDeviceSheet()" title="Įrenginys"><i class="fas fa-mobile-screen-button"></i><span id="deviceDot" class="hidden" style="position:absolute; top:4px; right:4px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--danger-color); color:#fff; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center;"></span></button>
+            <button class="icon-btn-round hidden" id="trendsQuickBtn" data-page="trends" onclick="switchPage('trends')" title="Trends"><i class="fas fa-chart-line"></i></button>
+            <!-- Įrenginys button hidden on mobile for now (2026-11-26). The sheet itself still
+                 opens on its own for an unpaired device and from a new-device push. -->
+            <button class="icon-btn-round hidden" id="deviceBtn" style="position:relative;" onclick="openDeviceSheet()" title="Įrenginys"><i class="fas fa-mobile-screen-button"></i><span id="deviceDot" class="hidden" style="position:absolute; top:4px; right:4px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--danger-color); color:#fff; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center;"></span></button>
             <button class="icon-btn-round" onclick="logout()" title="Atsijungti"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
     </div>
@@ -522,6 +571,35 @@ select.form-input { appearance: none; -webkit-appearance: none; }
             <div class="sales-line-list" id="salesLineList"></div>
         </div>
 
+        <!-- ============ PREKIŲ KATALOGAS — stock table (admin/manager only) ============ -->
+        <div class="page" id="page-catalog">
+            <div class="mc-head">
+                <label class="mc-search">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="search" class="form-input" id="mcSearch" autocomplete="off" placeholder="Kodas, pavadinimas, tiekėjas, spalva…" oninput="onMcSearch()">
+                    <button type="button" class="mc-search-clear hidden" id="mcSearchClear" onclick="clearMcSearch()" title="Išvalyti"><i class="fas fa-xmark"></i></button>
+                </label>
+                <div class="mc-tools">
+                    <select class="form-input" id="mcSupplier" onchange="renderMc()" aria-label="Tiekėjas"></select>
+                    <select class="form-input" id="mcCategory" onchange="renderMc()" aria-label="Kategorija"></select>
+                    <select class="form-input" id="mcSort" onchange="renderMc()" aria-label="Rikiuoti">
+                        <option value="code">Kodas</option>
+                        <option value="asc">Viso ↑</option>
+                        <option value="desc">Viso ↓</option>
+                    </select>
+                </div>
+                <div class="mc-stats" id="mcStats"></div>
+                <div class="mc-legend"><span class="mc-c">1</span><span class="mc-c q2">3</span><span class="mc-c q5">6</span> abiejose parduotuvėse <span class="mc-c e">·</span> išparduota</div>
+            </div>
+            <div class="mc-wrap" id="mcWrap">
+                <table class="mc-table">
+                    <thead id="mcHeadEl"></thead>
+                    <tbody id="mcBody"></tbody>
+                </table>
+                <div class="mc-empty hidden" id="mcEmpty">Nieko nerasta. Pabandykite trumpesnį žodį arba išvalykite paiešką.</div>
+            </div>
+        </div>
+
         <!-- ============ TRENDS (admin/manager only) ============ -->
         <div class="page" id="page-trends">
             <div class="trends-head">
@@ -549,8 +627,8 @@ select.form-input { appearance: none; -webkit-appearance: none; }
         <button class="bn-item hidden" id="navSales" data-page="sales" onclick="switchPage('sales')">
             <span class="bn-icon-wrap"><i class="fas fa-cash-register"></i></span><span>Pardavimai</span>
         </button>
-        <button class="bn-item hidden" id="navTrends" data-page="trends" onclick="switchPage('trends')">
-            <span class="bn-icon-wrap"><i class="fas fa-chart-line"></i></span><span>Trends</span>
+        <button class="bn-item hidden" id="navCatalog" data-page="catalog" onclick="switchPage('catalog')">
+            <span class="bn-icon-wrap"><i class="fas fa-table-cells"></i></span><span>Katalogas</span>
         </button>
     </div>
 </div>
@@ -874,7 +952,8 @@ async function showApp() {
     document.getElementById('mcQuickBtn').classList.toggle('hidden', !canManageCatalog());
     document.getElementById('navSuppliers').classList.toggle('hidden', !canManageSuppliers());
     document.getElementById('navSales').classList.toggle('hidden', !canManageSuppliers());
-    document.getElementById('navTrends').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('trendsQuickBtn').classList.toggle('hidden', !canManageSuppliers());
+    document.getElementById('navCatalog').classList.toggle('hidden', !canManageSuppliers());
     deviceCheckIn(); // fire-and-forget, observe-only (see DEVICES section)
     await loadStores();
     await loadSupplierPicker();
@@ -1009,14 +1088,17 @@ async function loadStores() {
    Užsakymai stay open to every role (unchanged); Tiekėjai/Pardavimai/
    Trends are hidden per-button for non-managers in showApp() (and, for
    the two not built yet, hidden unconditionally until their own slice
-   lands — see the "hidden" class on #navSales/#navTrends in the markup).
+   lands — see the "hidden" class on #navSales/#navCatalog in the markup).
+   Trends now opens from a topbar icon (#trendsQuickBtn); its bottom-nav
+   slot is the Prekių katalogas table (#navCatalog).
    ============================================================ */
 function switchPage(name) {
     document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + name));
-    document.querySelectorAll('.bn-item').forEach(el => el.classList.toggle('active', el.dataset.page === name));
+    document.querySelectorAll('.bn-item, #trendsQuickBtn').forEach(el => el.classList.toggle('active', el.dataset.page === name));
     if (name === 'suppliers') { supplierSheetMode = 'list'; showSupplierListShell(); loadSuppliers(); }
     else if (name === 'sales') { openSalesPage(); }
     else if (name === 'trends') { openTrendsPage(); }
+    else if (name === 'catalog') { openCatalogTablePage(); }
 }
 
 async function loadSupplierPicker() {
@@ -1368,6 +1450,7 @@ async function loadCatalog(isRetryAfterRefresh) {
     lastSearchResults = q ? searchProducts(q) : null;
     renderCategoryChips();
     renderGrid(applyFilters(lastSearchResults !== null ? lastSearchResults : products));
+    if (mcActive()) mcScheduleRender(250);
 }
 
 function totalStockForProduct(p) {
@@ -2225,6 +2308,197 @@ function closeLineImgPreviewOnOutsideClick() {
 function isPageActive(name) {
     const el = document.getElementById('page-' + name);
     return !!el && el.classList.contains('active');
+}
+
+/* ============================================================
+   PREKIŲ KATALOGAS (phone) — admin/manager only, same gate as Trends.
+   Phone version of the desktop "Prekių Katalogas" stock matrix
+   (SlebuteApp): one row per style with stock, one shared size axis
+   (EU numbers, letter sizes placed on the numeric scale, ONE, Kita),
+   each cell = units in both shops, all colours summed. Reads only the
+   in-memory `products` (rpc_get_pos_catalog), so it costs no queries
+   and follows realtime reloads. Tapping a row opens the same product
+   sheet Atsargos uses (per-shop stock by colour and size, transfers).
+   Size mapping is a copy of the desktop's — keep the two in step.
+   ============================================================ */
+const MC_SIZE_ALIAS = { XXL: '2XL', XXXL: '3XL' };
+const MC_LETTER_AT = { XS: 40, S: 42, M: 44, L: 46, XL: 50, '2XL': 54, '3XL': 58, '4XL': 62, '5XL': 64, '6XL': 66, '7XL': 68, '8XL': 70 };
+const MC_COLS = ['≤38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62+', 'ONE', 'OTHER'];
+const MC_BAND = { '40': 'XS', '42': 'S', '44': 'M', '46': 'L', '50': 'XL', '54': '2XL', '58': '3XL', '62+': '4XL+' };
+const MC_BATCH = 120;   // rows added per scroll step — all ~800 rows at once is slow on a phone
+const MC_NO_SUPPLIER = '__none__';
+let mcView = [], mcCols = [], mcTerms = [], mcShown = 0, mcObserver = null, mcSearchTimer = null, mcRenderTimer = null;
+
+const mcActive = () => document.getElementById('page-catalog').classList.contains('active');
+const mcCanon = s => { const x = String(s).trim().toUpperCase(); return MC_SIZE_ALIAS[x] || x; };
+const mcNumCol = n => n <= 38 ? '≤38' : n >= 62 ? '62+' : String(n % 2 ? n - 1 : n);
+function mcSizeCol(raw) {
+    const s = mcCanon(raw);
+    if (/^\d{2}$/.test(s) && +s >= 30) return { col: mcNumCol(+s), tag: (+s <= 38 || +s >= 62) ? s : '' };
+    const dbl = s.match(/^(\d{2})\/(\d{2})$/);
+    if (dbl) return { col: mcNumCol(+dbl[1]), tag: s };
+    if (s in MC_LETTER_AT) return { col: mcNumCol(MC_LETTER_AT[s]), tag: s };
+    if (s === 'ONE') return { col: 'ONE', tag: '' };
+    return { col: 'OTHER', tag: s };
+}
+const mcCategoryLabel = c => c ? c.replace(/\s+\d+$/, '').replace(/\s{2,}/g, ' ') : '—';
+const mcCodeKey = c => String(c || '').split(/[-.]/).map(x => x.padStart(6, '0')).join('-');
+const mcQty = (v, st) => Math.max(0, v.stockByLocation[st.id] ? v.stockByLocation[st.id].quantity : 0);
+const mcDivCol = c => c === 'ONE' || (c === 'OTHER' && !mcCols.includes('ONE'));
+const mcColCls = c => 'mc-s' + (mcDivCol(c) ? ' mc-div' : '') + (c === 'OTHER' ? ' mc-wide' : '');
+
+function mcBuildRows() {
+    const supName = new Map(supplierPicker.map(s => [String(s.id), s.name]));
+    const rows = [];
+    for (const p of products) {
+        const cells = {}; let total = 0;
+        for (const v of p.variants) {
+            const { col, tag } = mcSizeCol(v.size);
+            const cell = cells[col] || (cells[col] = { q: 0, tags: new Set() });
+            const q = STORES.reduce((a, st) => a + mcQty(v, st), 0);
+            cell.q += q; total += q;
+            if (q > 0 && tag) cell.tags.add(tag);
+        }
+        if (total <= 0) continue; // lists what is on hand, like the desktop
+        const supplier = supName.get(String(p.supplierId)) || '';
+        rows.push({ p, cells, total, supplier, supKey: supplier ? String(p.supplierId) : MC_NO_SUPPLIER, cat: mcCategoryLabel(p.category),
+            hay: normalizeLt([p.base_barcode, p.name, p.category, supplier, p.size_range, p.composition, ...new Set(p.variants.map(v => v.colorName))].join(' ')) });
+    }
+    return rows;
+}
+
+function mcHighlight(text, terms) {
+    const s = String(text || '');
+    if (!terms.length) return escapeHtml(s);
+    const f = normalizeLt(s);
+    if (f.length !== s.length) return escapeHtml(s); // folding changed the length — skip marks rather than misplace them
+    const marks = new Array(s.length).fill(false);
+    for (const tm of terms) { let i = f.indexOf(tm); while (i > -1) { for (let k = i; k < i + tm.length; k++) marks[k] = true; i = f.indexOf(tm, i + tm.length); } }
+    let html = '', open = false;
+    for (let i = 0; i < s.length; i++) {
+        if (marks[i] && !open) { html += '<mark>'; open = true; }
+        if (!marks[i] && open) { html += '</mark>'; open = false; }
+        html += escapeHtml(s[i]);
+    }
+    return html + (open ? '</mark>' : '');
+}
+
+function mcCellHtml(cell, col) {
+    if (!cell) return '';
+    if (cell.q <= 0) return '<span class="mc-c e">·</span>';
+    const cls = cell.q >= 5 ? ' q5' : cell.q >= 2 ? ' q2' : '';
+    // Size tag only in the grouped columns (≤38, 62+, Kita) — 32px has no
+    // room for "XL 2" in every cell; the header already names the letter size.
+    let tag = '';
+    if (cell.tags.size && (col === '≤38' || col === '62+' || col === 'OTHER')) {
+        const tg = [...cell.tags].sort(compareSizes);
+        tag = tg.length > 1 ? `${tg[0]}–${tg[tg.length - 1]}` : tg[0];
+    }
+    return `<span class="mc-c${cls}">${tag ? `<i>${escapeHtml(tag)}</i>` : ''}${cell.q}</span>`;
+}
+
+function mcSelectOptions(sel, allLabel, entries) {
+    const chosen = sel.value;
+    const keep = entries.some(e => e.value === chosen) ? chosen : '';
+    sel.innerHTML = `<option value="">${allLabel}</option>` + entries.map(e => `<option value="${escapeHtml(e.value)}"${e.value === keep ? ' selected' : ''}>${escapeHtml(e.label)}</option>`).join('');
+    sel.value = keep;
+    sel.classList.toggle('on', !!keep);
+    return keep;
+}
+
+function renderMc() {
+    if (!mcActive()) return;
+    const rows = mcBuildRows();
+    mcTerms = normalizeLt(document.getElementById('mcSearch').value).split(/\s+/).filter(Boolean);
+    // Supplier list: every supplier with stock, with its style count. Products
+    // without a supplier get an explicit "Be tiekėjo" entry (listed last).
+    const supCount = new Map();
+    for (const r of rows) { const e = supCount.get(r.supKey) || { label: r.supplier || 'Be tiekėjo', n: 0 }; e.n++; supCount.set(r.supKey, e); }
+    const supEntries = [...supCount.entries()]
+        .map(([value, e]) => ({ value, label: `${e.label} (${e.n})`, key: value === MC_NO_SUPPLIER ? '￿' : e.label }))
+        .sort((a, b) => a.key.localeCompare(b.key, 'lt'));
+    const sup = mcSelectOptions(document.getElementById('mcSupplier'), 'Visi tiekėjai', supEntries);
+    const cats = [...new Set(rows.filter(r => !sup || r.supKey === sup).map(r => r.cat))].sort((a, b) => a.localeCompare(b, 'lt'));
+    const cat = mcSelectOptions(document.getElementById('mcCategory'), 'Visos kategorijos', cats.map(c => ({ value: c, label: c })));
+    const sort = document.getElementById('mcSort').value;
+    mcView = rows.filter(r => (!sup || r.supKey === sup) && (!cat || r.cat === cat) && mcTerms.every(tm => r.hay.includes(tm)));
+    const byCode = (a, b) => mcCodeKey(a.p.base_barcode).localeCompare(mcCodeKey(b.p.base_barcode));
+    mcView.sort(sort === 'code' ? byCode : (a, b) => ((a.total - b.total) * (sort === 'asc' ? 1 : -1)) || byCode(a, b));
+
+    // Only the size columns this view uses (a sold-out size still counts).
+    mcCols = MC_COLS.filter(c => mcView.some(r => r.cells[c]));
+    const colSum = c => mcView.reduce((a, r) => a + (r.cells[c] ? r.cells[c].q : 0), 0);
+    const units = mcView.reduce((a, r) => a + r.total, 0);
+    const colLabel = c => c === 'OTHER' ? 'Kita' : c;
+    document.getElementById('mcHeadEl').innerHTML =
+        `<tr class="mc-h"><th class="mc-n">Prekė</th><th class="mc-t">Viso</th>${mcCols.map(c => `<th class="${mcColCls(c)}"><small>${MC_BAND[c] || ''}</small>${colLabel(c)}</th>`).join('')}</tr>` +
+        `<tr class="mc-sum"><th class="mc-n">vnt. pagal dydį</th><th class="mc-t">${units}</th>${mcCols.map(c => `<th class="${mcColCls(c)}">${colSum(c) || '·'}</th>`).join('')}</tr>`;
+    const all = rows.reduce((a, r) => a + r.total, 0);
+    document.getElementById('mcStats').innerHTML = mcView.length === rows.length
+        ? `<b>${rows.length}</b> modeliai · <b>${all.toLocaleString('lt-LT')}</b> vnt. abiejose`
+        : `<b>${mcView.length}</b> iš ${rows.length} modelių · <b>${units.toLocaleString('lt-LT')}</b> vnt.`;
+    document.getElementById('mcEmpty').classList.toggle('hidden', mcView.length > 0);
+    // Keep however many rows were already scrolled into view across a re-render.
+    const want = Math.max(MC_BATCH, mcShown);
+    mcShown = 0;
+    document.getElementById('mcBody').innerHTML = '';
+    mcAppendRows(want);
+}
+
+function mcRowHtml(r, i) {
+    const sub = [r.p.base_barcode ? `<b>${mcHighlight(r.p.base_barcode, mcTerms)}</b>` : '', r.supplier ? mcHighlight(r.supplier, mcTerms) : ''].filter(Boolean).join(' · ');
+    return `<tr data-i="${i}"><td class="mc-n"><span class="mc-nm">${mcHighlight(r.p.name, mcTerms)}</span><span class="mc-sub">${sub || '—'}</span></td>` +
+        `<td class="mc-t">${r.total}</td>${mcCols.map(c => `<td class="${mcColCls(c)}">${mcCellHtml(r.cells[c], c)}</td>`).join('')}</tr>`;
+}
+
+function mcAppendRows(n) {
+    const body = document.getElementById('mcBody');
+    const old = body.querySelector('tr.mc-more');
+    if (old) { if (mcObserver) mcObserver.unobserve(old); old.remove(); }
+    const end = Math.min(mcView.length, mcShown + n);
+    let html = '';
+    for (let i = mcShown; i < end; i++) html += mcRowHtml(mcView[i], i);
+    mcShown = end;
+    if (mcShown < mcView.length) html += `<tr class="mc-more"><td colspan="${mcCols.length + 2}" class="mc-empty" style="padding:14px; text-align:left;">Kraunama…</td></tr>`;
+    body.insertAdjacentHTML('beforeend', html);
+    const more = body.querySelector('tr.mc-more');
+    if (more && mcObserver) mcObserver.observe(more);
+}
+
+function mcWire() {
+    if (mcObserver !== null) return;
+    const wrap = document.getElementById('mcWrap');
+    mcObserver = ('IntersectionObserver' in window)
+        ? new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) mcAppendRows(MC_BATCH); }, { root: wrap, rootMargin: '400px' })
+        : false;
+    if (!mcObserver) wrap.addEventListener('scroll', () => {
+        if (mcShown < mcView.length && wrap.scrollTop + wrap.clientHeight > wrap.scrollHeight - 400) mcAppendRows(MC_BATCH);
+    }, { passive: true });
+    // One tap target per row: anywhere on it (size cells too) opens the product sheet.
+    document.getElementById('mcBody').addEventListener('click', e => {
+        const tr = e.target.closest('tr[data-i]');
+        const r = tr && mcView[Number(tr.dataset.i)];
+        if (r) openProductSheet(r.p.id);
+    });
+}
+
+function openCatalogTablePage() {
+    mcWire();
+    renderMc();
+}
+function onMcSearch() {
+    document.getElementById('mcSearchClear').classList.toggle('hidden', !document.getElementById('mcSearch').value);
+    clearTimeout(mcSearchTimer);
+    mcSearchTimer = setTimeout(() => { mcShown = 0; document.getElementById('mcWrap').scrollTop = 0; renderMc(); }, 150);
+}
+function clearMcSearch() {
+    document.getElementById('mcSearch').value = '';
+    onMcSearch();
+}
+// Background catalogue reloads (realtime inventory) re-render the open table.
+function mcScheduleRender(delay) {
+    clearTimeout(mcRenderTimer);
+    mcRenderTimer = setTimeout(renderMc, delay);
 }
 
 /* ============================================================
