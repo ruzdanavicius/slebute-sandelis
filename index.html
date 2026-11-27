@@ -2290,7 +2290,7 @@ function renderSalesLines() {
             ${imgUrl ? `<img class="sl-thumb" src="${escapeHtml(imgUrl)}" onerror="this.style.opacity=0.15">` : `<div class="sl-thumb"></div>`}
             <div class="sl-main">
                 <div class="sl-name">${escapeHtml(l.product_name)} — ${escapeHtml(l.color_name)} / ${escapeHtml(l.size)}${l.oversold_note_id ? `<i class="fas fa-triangle-exclamation sl-oos-flag" title="${escapeHtml(l.oversold_note_body || '')}" onclick="showOversoldNoteMobile(event, ${l.order_item_id})"></i>` : ''}</div>
-                <div class="sl-meta">${time} · ${l.quantity} vnt.</div>
+                <div class="sl-meta">${p && p.base_barcode ? `${escapeHtml(p.base_barcode)} · ` : ''}${time} · ${l.quantity} vnt.</div>
                 <div class="sl-stock">${stockBadges}</div>
             </div>
             <div class="sl-money">
