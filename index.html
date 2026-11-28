@@ -1097,7 +1097,10 @@ async function pairThisDevice() {
 
 async function loadStores() {
     const { data, error } = await sb.from('stores').select('id, code, name, is_virtual').order('id');
-    if (!error && data) STORES = data.filter(s => !s.is_virtual);
+    if (!error && data) {
+        STORES = data.filter(s => !s.is_virtual);
+        VIRTUAL_STORE_IDS = new Set(data.filter(s => s.is_virtual).map(s => s.id));
+    }
 }
 
 /* ============================================================
@@ -2055,12 +2058,24 @@ function renderRequestsList() {
     }).join('');
 }
 
+// Virtual "Atvykstančios prekės" store: its goods are not on any shelf, so
+// there is nothing to scan out. Approving such a transfer on the phone
+// sends it straight to "Kelyje" (IN_TRANSIT), ready for the shop to scan in.
+var VIRTUAL_STORE_IDS = new Set();
+function isFromVirtualStore(r) { return VIRTUAL_STORE_IDS.has(r.source.id); }
+
 function buildRequestActions(r) {
     const isAdmin = isAdminRole();
     const iAmSource = r.source.id === DEVICE_LOCATION_ID || isAdmin;
     const iAmTarget = r.target.id === DEVICE_LOCATION_ID || isAdmin;
     const out = [];
-    if (r.status === 'PENDING' && iAmSource) {
+    if (r.status === 'PENDING' && iAmSource && isFromVirtualStore(r) && r.request_type === 'STORE_TRANSFER') {
+        out.push(`<button class="btn btn-success-sm" onclick="approveAndShip(${r.id},'PENDING')"><i class="fas fa-truck"></i> Patvirtinti ir išsiųsti</button>`);
+        out.push(`<button class="btn btn-danger-sm" onclick="manageRequest(${r.id},'CANCELLED')"><i class="fas fa-xmark"></i> Atšaukti</button>`);
+    } else if (r.status === 'ACCEPTED' && iAmSource && isFromVirtualStore(r) && r.request_type === 'STORE_TRANSFER') {
+        out.push(`<button class="btn btn-success-sm" onclick="approveAndShip(${r.id},'ACCEPTED')"><i class="fas fa-truck"></i> Išsiųsti</button>`);
+        out.push(`<button class="btn btn-danger-sm" onclick="manageRequest(${r.id},'CANCELLED')"><i class="fas fa-xmark"></i> Atšaukti</button>`);
+    } else if (r.status === 'PENDING' && iAmSource) {
         out.push(`<button class="btn btn-success-sm" onclick="manageRequest(${r.id},'ACCEPTED')"><i class="fas fa-check"></i> Priimti</button>`);
         out.push(`<button class="btn btn-danger-sm" onclick="manageRequest(${r.id},'CANCELLED')"><i class="fas fa-xmark"></i> Atšaukti</button>`);
     } else if (r.status === 'ACCEPTED' && iAmSource) {
@@ -2070,6 +2085,19 @@ function buildRequestActions(r) {
         out.push(`<span class="transfer-note" style="margin:0;">Gavimas patvirtinamas nuskenavus kasoje.</span>`);
     }
     return out.join('');
+}
+
+// PENDING -> ACCEPTED -> IN_TRANSIT in one tap (virtual-source transfers only).
+async function approveAndShip(id, fromStatus) {
+    if (fromStatus === 'PENDING') {
+        const a = await sb.rpc('rpc_update_stock_request_status', { p_request_id: id, p_new_status: 'ACCEPTED', p_payment: null });
+        if (a.error) { toast(a.error.message, 'error'); return; }
+    }
+    const b = await sb.rpc('rpc_update_stock_request_status', { p_request_id: id, p_new_status: 'IN_TRANSIT', p_payment: null });
+    if (b.error) { toast(b.error.message, 'error'); await loadRequests(); return; }
+    toast('Išsiųsta — parduotuvė gali priimti (Kelyje)', 'success');
+    await loadRequests();
+    await loadCatalog();
 }
 
 async function manageRequest(id, newStatus) {
